@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+# Eğitim çıktıları büyük olabilir; README'de kullanılacak grafik ve GIF'ler docs/img altına kopyalanır.
+results/
