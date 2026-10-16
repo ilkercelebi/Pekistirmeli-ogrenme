@@ -4,9 +4,9 @@
 > Teslim: YouTube videosu + GitHub linki + makale tarzı README + sınıfta sunum.
 
 ## Sıradaki adımlar
-1. `python train.py --algo q_learning --episodes 3000` ve `--algo sarsa` (her biri ~10 dk)
-2. `evaluate.py`, `plots.py`, `make_gif.py` (komutlar README'de)
-3. Görselleri `docs/img/` altına kopyala, README'deki `<...>` yer tutucularını doldur
+1. `python run_experiments.py --quick` ile hızlı dene, sonra `python run_experiments.py --ablation` (tam deney, ~15-30 dk).
+   Eğitim, değerlendirme, grafikler, GIF'ler, `docs/img/` ve README bölüm 6 + özet otomatik dolar.
+2. README'de kalan elle doldurulacak yerler: ad/numara, video linki, "Yorum" paragrafları, Sonuç bölümü
 4. Arayüz: `cd web && npm install && npm run build`, sonra `python serve.py` → http://localhost:8000
 5. Video: `docs/video_senaryosu.md` · Sunum: `docs/sunum_plani.md`
 6. İsteğe bağlı: `--gripper vacuum` ile aynı deneyler

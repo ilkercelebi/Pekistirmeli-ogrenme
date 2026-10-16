@@ -24,6 +24,7 @@ from pydantic import BaseModel
 
 from binpick import Action, ExperimentConfig, build, load_run, make_agent, run_episode
 from binpick.agents import TabularAgent
+from binpick.analysis import extreme_states, marginal_q
 from binpick.features import BIN_LABELS, FEATURE_INFO
 from binpick.scenarios import SCENARIOS, run_scenario
 from binpick.training import train
@@ -464,28 +465,19 @@ def run_detail(name: str, window: int = 50):
 
     cfg, agent = load_run(run)
     _, fe = build(cfg)
+    marginal = marginal_q(agent, fe)
     visited = np.flatnonzero(agent.N > 0)
-    idx = np.array(np.unravel_index(np.arange(fe.n_states), fe.dims))
-    marginal = {}
-    for i, fname in enumerate(fe.names):
-        vals = []
-        for b in range(fe.dims[i]):
-            sel = visited[idx[i, visited] == b]
-            w_ = agent.N[sel]
-            vals.append(float((agent.Q[sel] * w_).sum() / w_.sum()) if w_.sum() > 0 else None)
-        marginal[fname] = vals
 
     def describe(s):
         return {"state_id": int(s), "q": float(agent.Q[s]), "visits": int(agent.N[s]),
                 "features": [{"name": n, "label": BIN_LABELS[n][b][0], "tone": BIN_LABELS[n][b][1]}
                              for n, b in fe.describe(s).items()]}
 
-    common = visited[agent.N[visited] >= 10]
-    order = common[np.argsort(-agent.Q[common])]
+    best, worst = extreme_states(agent, fe)
     return {
         "name": name, "config": cfg.to_dict(), "curve": curve, "evals": _read_csv(run / "eval.csv"),
         "marginal": marginal, "visited": int(len(visited)), "n_states": fe.n_states,
-        "best": [describe(s) for s in order[:8]], "worst": [describe(s) for s in order[::-1][:8]],
+        "best": [describe(s) for s in best], "worst": [describe(s) for s in worst],
     }
 
 

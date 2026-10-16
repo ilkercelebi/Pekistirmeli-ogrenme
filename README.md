@@ -13,7 +13,9 @@ Endüstriyel bin picking problemlerinde robot, kutuya rastgele yığılmış par
 
 Ödevde önerilen tam evrişimli DQN yerine **derin öğrenme kullanmayan, tablo tabanlı** bir yaklaşım geliştirildi. Her aday kavrama eylemi, yükseklik haritasından çıkarılan birkaç ayrık yerel özelliğe indirgendi (durum-eylem kümeleme). **Q-learning** ve **SARSA**, sinir ağı olmadan, birkaç yüz hücrelik bir Q tablosu öğrenir. Tablo değerleri görüntünün her pikseline yerleştirilerek ödevdeki "piksel bazlı Q-haritası" fikri derin öğrenme olmadan elde edildi. Yöntemler, kendi yazdığımız 2.5 boyutlu bir kutu simülasyonunda rastgele ve kural tabanlı (sezgisel) yöntemlerle karşılaştırıldı.
 
-**Ana bulgu:** `<EĞİTİMDEN SONRA DOLDURULACAK — ör. "Q-learning test kutularında %X başarı oranına ulaşarak en yüksek nokta sezgiselini (%Y) geçti ve çarpışma oranını %Z'ye indirdi.">`
+<!-- OZET:BASLA (run_experiments.py doldurur) -->
+**Ana bulgu:** Parmaklı tutucu ile Q-learning, eğitimde görülmemiş test kutularında **%85.3** başarı oranına ulaştı ve en yüksek nokta sezgiselini (%69.9) 15.5 puan farkla geçti; çarpışma oranı %0.0, kutunun %99.9'i boşaltıldı. Rastgele seçimde başarı %3.3, çarpışma %32.4.
+<!-- OZET:BITIR -->
 
 ---
 
@@ -136,10 +138,14 @@ $$Q[\phi(s,a)] \leftarrow Q[\phi(s,a)] + \alpha \left( r + \gamma \max_{a'} Q[\p
 
 | Parametre | Değer |
 |---|---|
-| Eğitim bölümü | 3000 |
-| Test | eğitimde görülmemiş 200 sabit tohumlu kutu, $\varepsilon = 0$ |
-| Değerlendirme aralığı | her 250 bölümde 30 kutuda açgözlü değerlendirme |
-| Tohum (seed) | 0 `<birden fazla tohum kullanıldıysa yaz>` |
+| Yöntemler | Rastgele, Sezgisel, Q-learning, SARSA |
+| Tutucular | Parmaklı, vakumlu |
+| Eğitim | yöntem ve tutucu başına 3 tohum (0, 1, 2) × 3000 bölüm; ε eğitimin ilk yarısında 1.0 → 0.05 |
+| Ara değerlendirme | her 250 bölümde 20 kutuda açgözlü (ε = 0) politika |
+| Test | eğitimde görülmemiş 200 sabit tohumlu kutu, $\varepsilon = 0$; tüm yöntemler aynı kutularda |
+| Ablasyon | Q-learning, parmaklı: γ ∈ {0, 0.5, 0.9}, sabit α, tek bilek açısı |
+
+Bütün deney tek komutla tekrar üretilebilir: `python run_experiments.py --ablation` (bkz. [Kurulum](#kurulum-ve-çalıştırma)).
 
 Ölçütler: **başarı oranı** (başarılı alım / deneme), **çarpışma oranı**, **başarısız kavrama oranı**, **boşaltılan parça oranı** ve bölüm getirisi.
 
@@ -147,33 +153,79 @@ $$Q[\phi(s,a)] \leftarrow Q[\phi(s,a)] + \alpha \left( r + \gamma \max_{a'} Q[\p
 
 ## 6. Sonuçlar
 
-> Bu bölüm eğitimden sonra doldurulacak. Grafikler `results/` altında üretilir ve `docs/img/` altına kopyalanır.
+<!-- SONUCLAR:BASLA (run_experiments.py doldurur; elle düzenlemeyin) -->
+_Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 tohum × 3000 eğitim bölümü; test: eğitimde görülmemiş 200 kutu, keşif kapalı (ε = 0). ± değerleri tohumlar arası standart sapmadır._
 
-### 6.1 Öğrenme eğrileri
+### 6.1 Parmaklı tutucu
 
-![Öğrenme eğrileri](docs/img/learning_curves.png)
+| Yöntem | Başarı oranı | Çarpışma oranı | Başarısız kavrama | Boşaltılan parça | Getiri | Adım |
+|---|---|---|---|---|---|---|
+| Rastgele | %3.3 | %32.4 | %64.3 | %8.4 | -10.24 | 24.68 |
+| Sezgisel | %69.9 | %0.0 | %30.1 | %98.0 | 8.56 | 14.89 |
+| **Q-learning** (3 tohum) | %85.3 ± 0.1 | %0.0 ± 0.0 | %14.7 ± 0.1 | %99.9 ± 0.1 | 9.39 ± 0.01 | 11.79 ± 0.03 |
+| SARSA (3 tohum) | %84.2 ± 0.4 | %0.0 ± 0.0 | %15.8 ± 0.4 | %99.9 ± 0.1 | 9.37 ± 0.00 | 11.93 ± 0.02 |
 
-`<Yorum: ε azaldıkça getiri ve başarı oranı nasıl değişti, kaçıncı bölümde sezgisel yöntemi geçti?>`
+![Eğitim eğrileri](docs/img/learning_curves_parallel_jaw.png)
 
-### 6.2 Test kutularında karşılaştırma
+![Açgözlü politika](docs/img/greedy_parallel_jaw.png)
 
-`<results/eval_parallel_jaw/summary.md tablosunu buraya yapıştır>`
+![Karşılaştırma](docs/img/bars_parallel_jaw.png)
 
-![Karşılaştırma](docs/img/bars.png)
+![Q tablosu](docs/img/qtable_parallel_jaw.png)
 
-### 6.3 Nitel sonuçlar
+### 6.2 Vakumlu tutucu
+
+| Yöntem | Başarı oranı | Çarpışma oranı | Başarısız kavrama | Boşaltılan parça | Getiri | Adım |
+|---|---|---|---|---|---|---|
+| Rastgele | %3.4 | %10.1 | %86.5 | %8.5 | -5.85 | 24.68 |
+| **Sezgisel** | %60.6 | %0.0 | %39.4 | %86.0 | 6.61 | 17.19 |
+| Q-learning (3 tohum) | %51.3 ± 1.8 | %0.1 ± 0.2 | %48.6 ± 1.9 | %77.8 ± 0.3 | 5.21 ± 0.04 | 19.14 ± 0.35 |
+| SARSA (3 tohum) | %48.8 ± 2.4 | %0.0 ± 0.0 | %51.2 ± 2.4 | %76.6 ± 1.4 | 4.97 ± 0.27 | 19.62 ± 0.42 |
+
+![Eğitim eğrileri](docs/img/learning_curves_vacuum.png)
+
+![Açgözlü politika](docs/img/greedy_vacuum.png)
+
+![Karşılaştırma](docs/img/bars_vacuum.png)
+
+![Q tablosu](docs/img/qtable_vacuum.png)
+
+### 6.3 Örnek bölümler (aynı kutu, tohum 7)
+
+**Parmaklı tutucu**
 
 | Rastgele | Sezgisel | Q-learning |
 |---|---|---|
-| ![](docs/img/random.gif) | ![](docs/img/heuristic.gif) | ![](docs/img/qlearning.gif) |
+| ![](docs/img/random_parallel_jaw.gif) | ![](docs/img/heuristic_parallel_jaw.gif) | ![](docs/img/q_learning_parallel_jaw.gif) |
 
-### 6.4 Öğrenilen Q tablosu ne söylüyor?
+**Vakumlu tutucu**
 
-`<Arayüzdeki "En yüksek / en düşük Q değerli durumlar" tablosundan örnekler. Örn. "duvar=0 olan tüm durumlar ≈ -1'e yakınsadı: ajan duvar çarpışmasını öğrendi"; "genişlik=çok geniş durumlar negatif: parmak açıklığından geniş yüzeyler elendi">`
+| Rastgele | Sezgisel | Q-learning |
+|---|---|---|
+| ![](docs/img/random_vacuum.gif) | ![](docs/img/heuristic_vacuum.gif) | ![](docs/img/q_learning_vacuum.gif) |
 
-### 6.5 Parmaklı ve vakumlu tutucu
+### 6.4 Ablasyon
 
-`<İki tutucu tipinin karşılaştırması (opsiyonel)>`
+| Değişiklik | Başarı oranı | Çarpışma oranı | Boşaltılan parça | Getiri |
+|---|---|---|---|---|
+| γ = 0 (tek adımlık, bandit) | %31.4 | %0.0 | %47.5 | 0.95 |
+| γ = 0.5 (varsayılan) | %85.4 | %0.0 | %99.8 | 9.39 |
+| γ = 0.9 | %46.9 | %3.5 | %80.1 | 4.58 |
+| sabit α = 0.1 | %53.8 | %0.0 | %68.1 | 4.17 |
+| tek bilek açısı (θ öğrenilmiyor) | %47.4 | %0.1 | %71.8 | 4.25 |
+
+![Ablasyon](docs/img/ablation.png)
+<!-- SONUCLAR:BITIR -->
+
+### Yorum
+
+`<Öğrenme eğrileri: ε azaldıkça başarı oranı nasıl değişti, kaçıncı bölümde sezgisel yöntemi geçti?>`
+
+`<Q tablosu ne söylüyor? "Ajan ne öğrendi?" grafiğinden örnekler: örn. "duvar = çarpar" kovası güçlü negatif, "genişlik = sığar" pozitif.>`
+
+`<Q-learning ve SARSA farkı; parmaklı ve vakumlu tutucu farkı.>`
+
+`<Ablasyon: γ = 0 ile γ > 0 farkı ardışık kararların etkisini gösteriyor mu? Tek açıyla başarım ne kadar düşüyor?>`
 
 ---
 
@@ -222,19 +274,16 @@ cd web && npm install && npm run build && cd ..
 pytest -q                 # simülasyon, ajanlar, API
 (cd web && npm test)     # arayüz: kavrama animasyonu planı
 
-# eğitim (her biri ~10 dk)
+# TÜM DENEY tek komutla: eğitim → değerlendirme → grafikler → GIF'ler → README (bölüm 6 ve özet)
+python run_experiments.py --quick        # önce hızlı deneme (~1-2 dk, results/quick/, README'ye dokunmaz)
+python run_experiments.py --ablation     # tam deney (12 eğitim + 5 ablasyon, 10 çekirdekte ~15-30 dk)
+python run_experiments.py --skip-train   # eğitim yapmadan raporu yeniden üret
+# yarıda kesilirse aynı komut kaldığı yerden devam eder; baştan eğitmek için --force
+
+# tek tek adımlar (isteğe bağlı)
 python train.py --algo q_learning --gripper parallel_jaw --episodes 3000
-python train.py --algo sarsa      --gripper parallel_jaw --episodes 3000
-
-# test kutularında karşılaştırma (rastgele + sezgisel otomatik eklenir)
 python evaluate.py --runs results/q_learning_parallel_jaw_s0 results/sarsa_parallel_jaw_s0
-
-# grafikler
 python plots.py results/q_learning_parallel_jaw_s0 results/sarsa_parallel_jaw_s0
-
-# GIF'ler
-python make_gif.py --agent random    --seed 7 --out results/gifs/random.gif
-python make_gif.py --agent heuristic --seed 7 --out results/gifs/heuristic.gif
 python make_gif.py --run results/q_learning_parallel_jaw_s0 --seed 7 --out results/gifs/qlearning.gif
 
 # etkileşimli arayüz (API + derlenmiş arayüz tek adreste)
@@ -244,7 +293,7 @@ python serve.py          # → http://localhost:8000
 Arayüz üzerinde çalışırken canlı yenileme için iki terminal kullanılır: `python serve.py` ve `cd web && npm run dev`
 (→ http://localhost:5173, API istekleri 8000'e yönlendirilir).
 
-Vakumlu tutucu için aynı komutlarda `--gripper vacuum` kullanılır.
+Tek tek komutlarda vakumlu tutucu için `--gripper vacuum` kullanılır; `run_experiments.py` iki tutucuyu da çalıştırır.
 
 ## Proje Yapısı
 
@@ -257,6 +306,7 @@ binpick/
   agents.py      Q-learning, SARSA, rastgele, sezgisel
   runner.py      bölüm döngüsü
   training.py    eğitim döngüsü (komut satırı ve arayüz ortak kullanır)
+  analysis.py    öğrenilen Q tablosunun yorumu (özellik başına ortalama Q)
   scenarios.py   anlatım için elle kurulmuş örnek kavramalar
   viz.py         matplotlib çizimleri (GIF'ler için)
 server/api.py    arayüzün kullandığı HTTP API (FastAPI)
@@ -264,7 +314,8 @@ serve.py         API + derlenmiş arayüzü başlatır
 web/             React + Three.js arayüzü
   src/three/     3D robot hücresi: sahne, gantry robot, tutucu, kavrama animasyonu
   src/pages/     6 sayfa (Problem, MDP, Yöntem, Simülasyon, Karşılaştırma, Eğitim)
-train.py         eğitim
+run_experiments.py  tüm deney: çok tohumlu eğitim, değerlendirme, grafikler, GIF, README
+train.py         tek eğitim
 evaluate.py      test kutularında karşılaştırma
 plots.py         öğrenme eğrileri
 make_gif.py      bölüm animasyonu

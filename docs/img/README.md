@@ -1,6 +1,3 @@
-Eğitimden sonra README'de kullanılan görselleri buraya kopyala:
-
-```bash
-cp results/plots/learning_curves.png results/eval_parallel_jaw/bars.png docs/img/
-cp results/gifs/random.gif results/gifs/heuristic.gif results/gifs/qlearning.gif docs/img/
-```
+Bu klasördeki görseller `python run_experiments.py` tarafından üretilir ve buraya kopyalanır
+(eğitim eğrileri, açgözlü politika eğrileri, karşılaştırma çubukları, Q tablosu, ablasyon, GIF'ler).
+Elle kopyalamaya gerek yoktur; README'nin 6. bölümü de aynı komutla güncellenir.
