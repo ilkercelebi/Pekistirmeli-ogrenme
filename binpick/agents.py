@@ -68,6 +68,17 @@ class HeuristicAgent(BaseAgent):
         if not safe.any():
             safe = feats.valid
         h = np.where(safe.any(axis=0), feats.raw["height"], -np.inf)
+        seal = feats.raw.get("seal")
+        if seal is not None:
+            # Vakum: vantuzun tam oturduğu (ölçülen sızdırmazlık ≥ %85) en yüksek parça noktası;
+            # yoksa parça üstündeki en iyi sızdırmazlık. Aksi hâlde dar parçaların kenarı seçilir
+            # ve kutu değişmediği için aynı başarısız kavrama tekrar tekrar denenir.
+            on_part = np.isfinite(h) & (feats.raw["level"] > 0)
+            fits = on_part & (seal >= 0.85)
+            if fits.any():
+                h = np.where(fits, h, -np.inf)
+            elif on_part.any():
+                h = np.where(on_part, seal, -np.inf)
         best = np.flatnonzero(h >= h.max() - 1e-9)
         r, c = np.unravel_index(best[self.rng.integers(len(best))], h.shape)
         angles = np.flatnonzero(safe[:, r, c])

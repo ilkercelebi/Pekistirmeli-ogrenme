@@ -56,7 +56,7 @@ class GripperConfig:
     grasp_depth: float = 1.5         # parmakların parça üst yüzeyinden ne kadar aşağı ineceği
 
     # Vakumlu tutucu
-    cup_radius: float = 2.0
+    cup_radius: float = 1.5          # küçük parçalar için küçük vantuz (2 cm dar parçalara oturmuyor)
     min_seal: float = 0.85           # vakumun tutması için gereken en az sızdırmazlık oranı
 
     surface_tol: float = 0.6         # "aynı yüzey" sayılan yükseklik farkı (cm)

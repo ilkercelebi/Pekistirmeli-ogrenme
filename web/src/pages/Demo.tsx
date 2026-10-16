@@ -138,7 +138,7 @@ export default function Demo() {
                 <input type="number" value={seed} min={0} style={{ width: 92 }} onChange={(e) => setSeed(Number(e.target.value) || 0)} />
               </Field>
               <Field label="Animasyon hızı">
-                <Seg value={speed} onChange={setSpeed} options={[0.5, 1, 2, 4].map((v) => ({ value: v, label: `${v}×` }))} />
+                <Seg value={speed} onChange={setSpeed} options={[0.25, 0.5, 1, 2, 4].map((v) => ({ value: v, label: `${v}×` }))} />
               </Field>
             </div>
             <div className="row">

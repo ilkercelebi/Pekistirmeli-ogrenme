@@ -71,7 +71,7 @@ Fiziksel robot kullanılmadı. Kuşbakışı, 2.5 boyutlu bir kutu simülasyonu 
 
 - **Parçalar:** dikdörtgen kutular (4–14 × 2–8 cm) ve diskler (çap 3–7 cm), kalınlık 2–5 cm. Parçalar kutu merkezinde yığın oluşturacak biçimde sırayla bırakılır. Her parça altındaki en yüksek noktanın üstüne oturur, böylece üst üste binen gerçekçi bir yığın oluşur.
 - **Parmaklı tutucu:** 9 cm açıklık, 1 × 3 cm parmaklar. Parmaklar parça üst yüzeyinin 1.5 cm altına inmelidir.
-- **Vakumlu tutucu:** 2 cm yarıçaplı vantuz. En az %85 sızdırmazlık gerekir.
+- **Vakumlu tutucu:** 1.5 cm yarıçaplı vantuz. En az %85 sızdırmazlık gerekir.
 - **Sonuç kuralları** (ortam gerçek parça bilgisini kullanır):
   1. Tutucu ayak izi duvara değiyorsa → **çarpışma**
   2. Noktada parça yoksa → başarısız
@@ -128,7 +128,7 @@ $$Q[\phi(s,a)] \leftarrow Q[\phi(s,a)] + \alpha \left( r + \gamma \max_{a'} Q[\p
 ### 4.3 Karşılaştırma yöntemleri
 
 - **Rastgele:** aday eylemlerden düzgün dağılımla seçim (alt sınır).
-- **Sezgisel (en yüksek nokta):** duvara çarpmayan açılar arasından, en yüksek noktada ölçülen genişliği en küçük açıyı seçer. Endüstride sık kullanılan, elle yazılmış bir kuraldır.
+- **Sezgisel (en yüksek nokta):** duvara çarpmayan açılar arasından, en yüksek noktada ölçülen genişliği en küçük açıyı seçer. Endüstride sık kullanılan, elle yazılmış bir kuraldır. Vakumlu tutucuda, ölçülen sızdırmazlığı %85'in üstünde olan en yüksek parça noktasını seçer.
 
 ---
 
@@ -219,7 +219,8 @@ cd web && npm install && npm run build && cd ..
 
 ```bash
 # testler
-pytest -q
+pytest -q                 # simülasyon, ajanlar, API
+(cd web && npm test)     # arayüz: kavrama animasyonu planı
 
 # eğitim (her biri ~10 dk)
 python train.py --algo q_learning --gripper parallel_jaw --episodes 3000

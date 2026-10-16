@@ -120,3 +120,13 @@ def test_agents_run_and_learn(algo):
         assert stats["steps"] >= 1
     if agent.learns:
         assert agent.N.sum() > 0
+
+
+@pytest.mark.parametrize("kind", ["parallel_jaw", "vacuum"])
+def test_heuristic_baseline_is_meaningful(kind):
+    """Sezgisel karşılaştırma yöntemi aynı başarısız kavramayı tekrarlayıp takılmamalı."""
+    cfg, env, fe = make_env(kind, no_slip=False)
+    agent = make_agent("heuristic", 0, seed=0)
+    rows = [run_episode(env, agent, fe, learn=False, seed=2_000_000 + i) for i in range(6)]
+    assert np.mean([r["success_rate"] for r in rows]) > 0.4
+    assert np.mean([r["collision_rate"] for r in rows]) == 0.0
