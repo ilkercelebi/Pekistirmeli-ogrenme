@@ -28,6 +28,30 @@ from . import geometry
 from .config import EnvConfig, FeatureConfig, GripperConfig
 
 
+# Her özelliğin kovaları için okunabilir adlar ve "iyi/kötü" tonu (arayüz için).
+BIN_LABELS = {
+    "yükseklik": [("zemin", "bad"), ("alçak", "mid"), ("orta", "mid"), ("yüksek", "good")],
+    "düzlük": [("düz", "good"), ("hafif eğimli", "mid"), ("kenar/pürüzlü", "bad")],
+    "yakında_yüksek": [("yok", "good"), ("var", "bad")],
+    "duvar": [("çarpar", "bad"), ("yakın", "mid"), ("güvenli", "good")],
+    "parmak_boşluğu": [("boş", "good"), ("sınırda", "mid"), ("dolu", "bad")],
+    "genişlik": [("sığar", "good"), ("sınırda", "mid"), ("çok geniş", "bad")],
+    "ortalı": [("kenarda", "mid"), ("ortada", "good")],
+    "sızdırmazlık": [("iyi", "good"), ("orta", "mid"), ("kötü", "bad")],
+}
+
+FEATURE_INFO = {
+    "yükseklik": "Kavrama noktasının zeminden yüksekliği. Yüksek parçalar genelde yığının üstündedir.",
+    "düzlük": "3×3 komşulukta yükseklik değişimi. Değişim büyükse nokta bir parça kenarındadır.",
+    "yakında_yüksek": "Yakında belirgin derecede daha yüksek bir nokta var mı? Varsa parçanın üstü kapalı olabilir.",
+    "duvar": "Tutucunun ayak izi kutu duvarına değiyor mu ya da çok mu yakın?",
+    "parmak_boşluğu": "Parmakların ineceği bölgede engel var mı?",
+    "genişlik": "θ yönünde ölçülen yüzey genişliği, tutucu açıklığına sığıyor mu?",
+    "ortalı": "Nokta, yüzeyin θ yönündeki ortasına yakın mı?",
+    "sızdırmazlık": "Vantuz altındaki alanın ne kadarı aynı düz yüzey?",
+}
+
+
 @dataclass
 class FeatureMaps:
     state_ids: np.ndarray   # (A, H, W) her aday eylemin tablo indeksi

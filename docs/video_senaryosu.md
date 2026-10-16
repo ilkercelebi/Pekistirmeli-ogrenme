@@ -1,22 +1,22 @@
 # YouTube Video Senaryosu (4–5 dk)
 
-Kayıt: ekran kaydı (Streamlit arayüzü + grafikler) ve üstüne anlatım sesi.
-Kayıttan önce: eğitim bitmiş, `evaluate.py`, `plots.py` ve `make_gif.py` çalıştırılmış olmalı.
+Kayıt: arayüzün ekran kaydı (`python serve.py` → http://localhost:8000) ve üstüne anlatım sesi.
+Kayıttan önce en az bir Q-learning eğitimi bitmiş olmalı (komut satırından ya da "Eğitim ve sonuçlar" sayfasından).
 
 | Süre | Ekranda | Anlatım |
 |---|---|---|
-| 0:00–0:20 | Başlık slaydı | Ödev 8: düzensiz kutudan parça alma için optimal kavrama seçimi. Klasik, tablo tabanlı pekiştirmeli öğrenme. |
-| 0:20–0:50 | Gerçek bin picking fotoğrafı/çizimi | Problem: rastgele yığılmış parçalar; tutucu duvara çarpabilir, parça kayabilir. Karar: hangi nokta, hangi açı? |
-| 0:50–1:30 | Arayüz, "Canlı demo", Q-haritası kapalı | Simülasyon: yükseklik haritası, renkler yükseklik. Parmaklı tutucu, 4 açı. MDP: durum / eylem / ödül (+1, −1, −0.2). |
-| 1:30–2:00 | Yöntem: "Rastgele", "1 adım" birkaç kez | Rastgele ajan: duvara çarpıyor (kırmızı), boşa kavrıyor (turuncu). |
-| 2:00–2:45 | Yöntem slaydı (özellik tablosu) | Neden derin RL değil; görüntüyü 7 ayrık özelliğe indirgeme; 1296 hücrelik Q tablosu; Q-learning güncelleme kuralı. |
-| 2:45–3:15 | "Eğitim sonuçları" sekmesi, öğrenme eğrisi | ε azaldıkça başarı artıyor, çarpışma sıfıra iniyor; sezgisel çizgiyi geçtiği nokta. |
-| 3:15–3:50 | "Canlı demo", Q-learning ajanı, Q-haritası açık, "Kutuyu boşalt" | Yeşil/kırmızı Q-haritası: duvar kenarları kırmızı, parça ortaları yeşil. Ajan kutuyu boşaltıyor. |
-| 3:50–4:15 | "Yan yana": Sezgisel vs Q-learning, aynı tohum | Aynı kutuda karşılaştırma; adım sayısı ve başarısız deneme farkı. |
-| 4:15–4:40 | Test tablosu ve "en iyi/en kötü durumlar" tablosu | Sayısal sonuçlar; tablonun yorumlanabilirliği (ajanın ne öğrendiği okunabiliyor). |
-| 4:40–5:00 | Sonuç slaydı + GitHub linki | Sınırlamalar (2.5B simülasyon, kümeleme) ve gelecek çalışma. |
+| 0:00–0:20 | **Problem** sayfasının başlığı | Ödev 8: düzensiz kutudan parça alma için optimal kavrama seçimi. Klasik, tablo tabanlı pekiştirmeli öğrenme. |
+| 0:20–1:00 | **Problem** · senaryo oynatıcı (1→4) | Robot hücresi: kutu, gantry robot, derinlik kamerası. Dört senaryo: doğru kavrama, duvara çarpma, yanlış açı, üstü kapalı parça. |
+| 1:00–1:40 | **MDP tasarımı** | Gerçek sahne ve kameranın gördüğü harita yan yana; dört bilek açısı; ödül kartları (+1 / −1 / −0.2). |
+| 1:40–2:30 | **Yöntem** | Neden derin RL değil; 6.400 aday eylem → 1.296 tablo hücresi; özellik haritaları; bir piksele tıklayıp φ(s,a) hesabını göster; Q-learning formülü. |
+| 2:30–3:00 | **Eğitim ve sonuçlar** | Öğrenme eğrisi: ε azaldıkça başarı artıyor, çarpışma sıfıra iniyor. "Ajan ne öğrendi?": duvar = çarpar kırmızı, genişlik = sığar yeşil. |
+| 3:00–3:50 | **Simülasyon** · Q-learning ajanı, 3D katman "Q-haritası", "Kutuyu boşalt" | Q-haritası parçaların üstünde: yeşil iyi noktalar. Ajan kutuyu boşaltıyor, parçalar tepsiye diziliyor. |
+| 3:50–4:15 | **Simülasyon** · manuel mod | Duvar dibine tıkla: çarpışma ve kırmızı ışık. Doğru noktaya tıkla: başarı. |
+| 4:15–4:40 | **Karşılaştırma** | Rastgele, sezgisel ve Q-learning aynı test kutularında: grafik ve tablo. |
+| 4:40–5:00 | Problem sayfası + GitHub linki | Sınırlamalar (2.5B simülasyon, durum kümeleme) ve gelecek çalışma. |
 
 ## Kayıt ipuçları
-- Kutu tohumunu önceden seç: Q-learning ile sezgisel yöntemin farkının açıkça görüldüğü bir tohum bul (arayüzde "Yan yana" sekmesinde birkaç tohum dene).
-- Tarayıcıyı tam ekran yap, kenar çubuğunu daralt.
+- Tarayıcıyı tam ekran yap. 3D sahnede sürükleyerek kamerayı çevirebilir, "Hücre / Yakın / Üstten" görünümlerine geçebilirsin.
+- Simülasyon sayfasında animasyon hızını 1× ya da 2× tut; 4× video için hızlı kalır.
+- Sezgisel yöntem ile Q-learning'in farkının açıkça görüldüğü bir kutu tohumu seç (birkaç tohum dene).
 - Videoyu "Liste dışı" (unlisted) yükleyip linki README'nin en üstüne ekle.

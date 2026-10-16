@@ -3,7 +3,7 @@
 **Ödev 8 · Pekiştirmeli Öğrenme**
 `<Ad Soyad · Öğrenci No · Ders / Dönem>`
 
-> 🎥 Video: `<YOUTUBE_LINKI>` · 💻 Kod: bu depo · 🖥️ Demo: `streamlit run app.py`
+> 🎥 Video: `<YOUTUBE_LINKI>` · 💻 Kod: bu depo · 🖥️ Arayüz: `python serve.py` → http://localhost:8000
 
 ---
 
@@ -190,12 +190,31 @@ $$Q[\phi(s,a)] \leftarrow Q[\phi(s,a)] + \alpha \left( r + \gamma \max_{a'} Q[\p
 
 ---
 
+## Etkileşimli Arayüz
+
+Simülasyon ve ajanlar Python'da çalışır; arayüz **React + Three.js** ile yazılmış, gerçekçi bir 3D robot hücresidir:
+mavi endüstriyel kutu, metal parçalar, kartezyen (gantry) robot, parmaklı ya da vakumlu tutucu, kutunun üstünde
+derinlik kamerası ve alınan parçaların dizildiği tepsi. Her kavrama animasyonla oynatılır: robot hedefe gider, bileği
+döndürür, iner, kavrar ve kaldırır. Sonuca göre parça tepsiye taşınır, kayıp düşer ya da tutucu duvara çarpıp sarsılır.
+
+| Sayfa | İçerik |
+|---|---|
+| 1 · Problem | Endüstriyel problem; dört örnek senaryo 3D olarak oynatılır (başarı, duvar çarpışması, yanlış açı, üstü kapalı parça) |
+| 2 · MDP tasarımı | Gerçek sahne ve kameranın gördüğü yükseklik haritası yan yana; dört bilek açısı; ödül ve getiri |
+| 3 · Yöntem | Özellik tablosu, her özelliğin tüm piksellerdeki haritası, seçilen eylemin tablo indeksi φ(s,a), öğrenme kuralları, Q-haritası |
+| 4 · Simülasyon | Ajanı adım adım ya da otomatik izleme; **manuel mod** (kavrama noktasını kullanıcı seçer); Q-haritasını 3D sahneye yansıtma; ajanın gözünden özellikler |
+| 5 · Karşılaştırma | Seçilen yöntemleri aynı test kutularında çalıştırıp grafik ve tablo üretir |
+| 6 · Eğitim ve sonuçlar | Tarayıcıdan eğitim başlatma ve canlı öğrenme eğrisi; kayıtlı eğitimlerin eğrileri; "ajan ne öğrendi?" grafikleri |
+
 ## Kurulum ve Çalıştırma
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+# arayüzü bir kez derle (Node.js 18+ gerekir)
+cd web && npm install && npm run build && cd ..
 ```
 
 ```bash
@@ -217,9 +236,12 @@ python make_gif.py --agent random    --seed 7 --out results/gifs/random.gif
 python make_gif.py --agent heuristic --seed 7 --out results/gifs/heuristic.gif
 python make_gif.py --run results/q_learning_parallel_jaw_s0 --seed 7 --out results/gifs/qlearning.gif
 
-# etkileşimli arayüz
-streamlit run app.py
+# etkileşimli arayüz (API + derlenmiş arayüz tek adreste)
+python serve.py          # → http://localhost:8000
 ```
+
+Arayüz üzerinde çalışırken canlı yenileme için iki terminal kullanılır: `python serve.py` ve `cd web && npm run dev`
+(→ http://localhost:5173, API istekleri 8000'e yönlendirilir).
 
 Vakumlu tutucu için aynı komutlarda `--gripper vacuum` kullanılır.
 
@@ -233,12 +255,18 @@ binpick/
   features.py    yükseklik haritası → ayrık durum-eylem indeksi
   agents.py      Q-learning, SARSA, rastgele, sezgisel
   runner.py      bölüm döngüsü
-  viz.py         yükseklik haritası, Q-haritası, tutucu çizimi
+  training.py    eğitim döngüsü (komut satırı ve arayüz ortak kullanır)
+  scenarios.py   anlatım için elle kurulmuş örnek kavramalar
+  viz.py         matplotlib çizimleri (GIF'ler için)
+server/api.py    arayüzün kullandığı HTTP API (FastAPI)
+serve.py         API + derlenmiş arayüzü başlatır
+web/             React + Three.js arayüzü
+  src/three/     3D robot hücresi: sahne, gantry robot, tutucu, kavrama animasyonu
+  src/pages/     6 sayfa (Problem, MDP, Yöntem, Simülasyon, Karşılaştırma, Eğitim)
 train.py         eğitim
 evaluate.py      test kutularında karşılaştırma
 plots.py         öğrenme eğrileri
 make_gif.py      bölüm animasyonu
-app.py           Streamlit arayüzü
 tests/           birim testleri
 docs/            video senaryosu, sunum planı, README görselleri
 ```

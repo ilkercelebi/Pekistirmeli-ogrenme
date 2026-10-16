@@ -31,6 +31,17 @@ SUCCESS = "success"
 COLLISION = "collision"
 FAIL = "fail"
 
+REASONS = {
+    "ok": "parça başarıyla kaldırıldı",
+    "wall": "tutucu kutu duvarına çarptı",
+    "empty": "boş noktaya kavrama",
+    "too_wide": "parça tutucu açıklığından geniş",
+    "finger_blocked": "parmaklar komşu parçaya takıldı",
+    "covered": "parçanın üstünde başka parça var",
+    "slip": "parça tutucudan kayıp düştü",
+    "seal": "vakum sızdırıyor (parça kenarı)",
+}
+
 
 @dataclass
 class Action:
@@ -174,10 +185,13 @@ class BinPickingEnv:
     def step(self, action: Action):
         theta = float(self.angles[action.angle_idx])
         center = (action.row, action.col)
+        anim = self._contact_heights(center, theta)
         if self.g.kind == "vacuum":
-            outcome, reason, pid = self._grasp_vacuum(center)
+            outcome, code, pid = self._grasp_vacuum(center)
         else:
-            outcome, reason, pid = self._grasp_jaw(center, theta)
+            outcome, code, pid = self._grasp_jaw(center, theta)
+        if outcome == COLLISION:
+            anim["stop_z"] = self.cfg.wall_height
 
         if outcome == SUCCESS:
             self.parts[pid].alive = False
@@ -193,13 +207,24 @@ class BinPickingEnv:
         truncated = not terminated and self.steps >= self.max_steps
         info = {
             "outcome": outcome,
-            "reason": reason,
+            "reason": REASONS[code],
+            "code": code,
+            "anim": anim,
             "part": pid,
             "theta_deg": math.degrees(theta),
             "parts_left": self.n_alive,
             "step": self.steps,
         }
         return self.observe(), reward, terminated, truncated, info
+
+    def _contact_heights(self, center, theta) -> dict:
+        """Animasyon için: kavrama yüzeyinin yüksekliği ve tutucunun inebildiği en alt nokta."""
+        top = float(self.heightmap[center])
+        if self.g.kind == "vacuum":
+            return {"top_z": top, "stop_z": top}
+        fingers = geometry.jaw_finger_mask(self.shape, center, theta, self.g)
+        under = float(np.where(self.wall_mask, 0.0, self.heightmap)[fingers].max()) if fingers.any() else 0.0
+        return {"top_z": top, "stop_z": max(top - self.g.grasp_depth, under, 0.0)}
 
     def _wall_hit(self, center, theta) -> bool:
         return bool((geometry.body_mask(self.shape, center, theta, self.g) & self.wall_mask).any())
@@ -213,19 +238,19 @@ class BinPickingEnv:
     def _grasp_jaw(self, center, theta):
         g = self.g
         if self._wall_hit(center, theta):
-            return COLLISION, "tutucu kutu duvarına çarptı", None
+            return COLLISION, "wall", None
         pid = int(self.id_map[center])
         if pid < 0:
-            return FAIL, "boş noktaya kavrama", None
+            return FAIL, "empty", None
 
         target = self.heightmap[center] - g.grasp_depth
         fingers = geometry.jaw_finger_mask(self.shape, center, theta, g)
         if fingers.any() and self.heightmap[fingers].max() > target + 1e-6:
             if (self.id_map[fingers] == pid).any():
-                return FAIL, "parça tutucu açıklığından geniş", pid
-            return FAIL, "parmaklar komşu parçaya takıldı", pid
+                return FAIL, "too_wide", pid
+            return FAIL, "finger_blocked", pid
         if self.is_covered(pid):
-            return FAIL, "parçanın üstünde başka parça var", pid
+            return FAIL, "covered", pid
 
         p = self.parts[pid]
         # En iyi kapanma yönü parçanın kısa eksenidir (uzun eksene dik).
@@ -238,24 +263,24 @@ class BinPickingEnv:
             + g.slip_offcenter * self._offcenter(p, center) ** 2
         )
         if self.rng.random() < min(p_slip, 1.0):
-            return FAIL, "parça tutucudan kayıp düştü", pid
-        return SUCCESS, "parça başarıyla kaldırıldı", pid
+            return FAIL, "slip", pid
+        return SUCCESS, "ok", pid
 
     def _grasp_vacuum(self, center):
         g = self.g
         if self._wall_hit(center, 0.0):
-            return COLLISION, "vantuz kutu duvarına çarptı", None
+            return COLLISION, "wall", None
         pid = int(self.id_map[center])
         if pid < 0:
-            return FAIL, "boş noktaya kavrama", None
+            return FAIL, "empty", None
 
         cup = geometry.disk_mask(self.shape, center, g.cup_radius)
         same = (self.id_map[cup] == pid) & (np.abs(self.heightmap[cup] - self.heightmap[center]) < g.surface_tol)
         seal = float(same.mean())
         if seal < g.min_seal:
-            return FAIL, "vakum sızdırıyor (parça kenarı)", pid
+            return FAIL, "seal", pid
         if self.is_covered(pid):
-            return FAIL, "parçanın üstünde başka parça var", pid
+            return FAIL, "covered", pid
 
         p = self.parts[pid]
         p_slip = (
@@ -264,5 +289,5 @@ class BinPickingEnv:
             + g.slip_offcenter * self._offcenter(p, center) ** 2
         )
         if self.rng.random() < min(p_slip, 1.0):
-            return FAIL, "parça vantuzdan kayıp düştü", pid
-        return SUCCESS, "parça başarıyla kaldırıldı", pid
+            return FAIL, "slip", pid
+        return SUCCESS, "ok", pid

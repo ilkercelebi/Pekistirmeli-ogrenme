@@ -14,20 +14,13 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import json
 import time
 from pathlib import Path
 
 import numpy as np
 
-from binpick import ExperimentConfig, build, make_agent, run_episode
-
-FIELDS = ["episode", "epsilon", "return", "steps", "parts", "success", "collision", "fail",
-          "success_rate", "collision_rate", "fail_rate", "cleared"]
-EVAL_FIELDS = ["episode", "return", "success_rate", "collision_rate", "fail_rate", "cleared"]
-
-EVAL_SEED0 = 1_000_000  # eğitimde hiç görülmeyen kutular
+from binpick import ExperimentConfig, build
+from binpick.training import train
 
 
 def parse_args():
@@ -67,56 +60,32 @@ def make_config(a) -> ExperimentConfig:
     return cfg
 
 
-def greedy_eval(cfg, agent, n: int, seed: int) -> dict:
-    env, fe = build(cfg, seed=seed)
-    rows = [run_episode(env, agent, fe, learn=False, seed=EVAL_SEED0 + i) for i in range(n)]
-    return {k: float(np.mean([r[k] for r in rows])) for k in EVAL_FIELDS if k != "episode"}
-
-
 def main():
     a = parse_args()
     cfg = make_config(a)
     name = a.name or f"{a.algo}_{a.gripper}_s{a.seed}"
     run_dir = Path(a.out) / name
-    run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "config.json").write_text(json.dumps(cfg.to_dict(), indent=2, ensure_ascii=False))
 
-    env, fe = build(cfg, seed=a.seed)
-    agent = make_agent(a.algo, fe.n_states, cfg.agent, seed=a.seed)
+    _, fe = build(cfg)
     print(f"[{name}] durum-eylem tablo boyutu: {fe.n_states}  ({' x '.join(map(str, fe.dims))})")
 
     t0 = time.time()
-    with open(run_dir / "metrics.csv", "w", newline="") as mf, open(run_dir / "eval.csv", "w", newline="") as ef:
-        mw, ew = csv.DictWriter(mf, FIELDS), csv.DictWriter(ef, EVAL_FIELDS)
-        mw.writeheader()
-        ew.writeheader()
-        recent = []
-        for ep in range(a.episodes):
-            agent.set_episode(ep)
-            s = run_episode(env, agent, fe, learn=True, seed=a.seed * 100_000 + ep)
-            mw.writerow({"episode": ep, "epsilon": round(agent.epsilon, 4), "return": s["return"],
-                         "steps": s["steps"], "parts": s["parts"], "success": s["success"],
-                         "collision": s["collision"], "fail": s["fail"],
-                         **{k: round(s[k], 4) for k in ("success_rate", "collision_rate", "fail_rate", "cleared")}})
-            recent.append(s)
+    recent = []
 
-            if (ep + 1) % a.log_every == 0:
-                m = {k: np.mean([r[k] for r in recent]) for k in ("return", "success_rate", "collision_rate", "cleared")}
-                print(f"bölüm {ep + 1:5d}  ε={agent.epsilon:.2f}  getiri={m['return']:6.2f}  "
-                      f"başarı={m['success_rate']:.2f}  çarpışma={m['collision_rate']:.2f}  "
-                      f"boşaltma={m['cleared']:.2f}  ({time.time() - t0:.0f} sn)")
-                recent = []
-                mf.flush()
+    def log(ep, row, agent, eval_row):
+        recent.append(row)
+        if (ep + 1) % a.log_every == 0:
+            m = {k: np.mean([r[k] for r in recent]) for k in ("return", "success_rate", "collision_rate", "cleared")}
+            print(f"bölüm {ep + 1:5d}  ε={agent.epsilon:.2f}  getiri={m['return']:6.2f}  "
+                  f"başarı={m['success_rate']:.2f}  çarpışma={m['collision_rate']:.2f}  "
+                  f"boşaltma={m['cleared']:.2f}  ({time.time() - t0:.0f} sn)")
+            recent.clear()
+        if eval_row:
+            print(f"  ↳ açgözlü değerlendirme: başarı={eval_row['success_rate']:.2f}  "
+                  f"çarpışma={eval_row['collision_rate']:.2f}  boşaltma={eval_row['cleared']:.2f}")
 
-            if a.eval_every and ((ep + 1) % a.eval_every == 0 or ep + 1 == a.episodes):
-                e = greedy_eval(cfg, agent, a.eval_episodes, seed=a.seed)
-                ew.writerow({"episode": ep + 1, **{k: round(v, 4) for k, v in e.items()}})
-                ef.flush()
-                agent.save(run_dir / "agent.npz")
-                print(f"  ↳ açgözlü değerlendirme: başarı={e['success_rate']:.2f}  "
-                      f"çarpışma={e['collision_rate']:.2f}  boşaltma={e['cleared']:.2f}")
-
-    agent.save(run_dir / "agent.npz")
+    train(cfg, a.episodes, seed=a.seed, run_dir=run_dir, eval_every=a.eval_every,
+          eval_episodes=a.eval_episodes, callback=log)
     print(f"Bitti. Sonuçlar: {run_dir}")
 
 

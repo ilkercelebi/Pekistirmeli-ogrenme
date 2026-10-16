@@ -7,8 +7,9 @@
 1. `python train.py --algo q_learning --episodes 3000` ve `--algo sarsa` (her biri ~10 dk)
 2. `evaluate.py`, `plots.py`, `make_gif.py` (komutlar README'de)
 3. Görselleri `docs/img/` altına kopyala, README'deki `<...>` yer tutucularını doldur
-4. Video: `docs/video_senaryosu.md` · Sunum: `docs/sunum_plani.md`
-5. İsteğe bağlı: `--gripper vacuum` ile aynı deneyler
+4. Arayüz: `cd web && npm install && npm run build`, sonra `python serve.py` → http://localhost:8000
+5. Video: `docs/video_senaryosu.md` · Sunum: `docs/sunum_plani.md`
+6. İsteğe bağlı: `--gripper vacuum` ile aynı deneyler
 
 Not: Kısa bir kontrolde (400 bölüm) Q-learning, sezgisel yöntemi geçti (başarı oranı 0.85'e karşı 0.69). Bu bir kontroldü, asıl sonuç değil.
 

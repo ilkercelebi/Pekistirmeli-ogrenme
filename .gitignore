@@ -5,3 +5,6 @@ __pycache__/
 .DS_Store
 # Eğitim çıktıları büyük olabilir; README'de kullanılacak grafik ve GIF'ler docs/img altına kopyalanır.
 results/
+web/node_modules/
+web/dist/
+*.tsbuildinfo

@@ -7,10 +7,11 @@
 5. **Simülasyon:** kutu, parça tipleri, yığın oluşumu, parmaklı ve vakumlu tutucu, sonuç kuralları (akış şeması).
 6. **Durum kümeleme:** 7 özelliğin tablosu; "6400 aday eylem → 1296 tablo hücresi"; Q-haritası nasıl oluşur.
 7. **Algoritma:** Q-learning ve SARSA güncelleme denklemleri, ε-açgözlü keşif, hiperparametreler.
-8. **Canlı demo (2–3 dk):** `streamlit run app.py`
-   - Rastgele ajan, 3–4 adım
-   - Q-learning ajanı, Q-haritası açık, "Kutuyu boşalt"
-   - "Yan yana" sekmesi
+8. **Canlı demo (2–3 dk):** `python serve.py` → http://localhost:8000
+   - Problem sayfası: senaryo oynatıcı
+   - Simülasyon: önce Sezgisel, sonra Q-learning ajanı, 3D katman "Q-haritası", "Kutuyu boşalt"
+   - Manuel mod: sınıftan birine kavrama noktası seçtir
+   - Karşılaştırma sayfası
 9. **Öğrenme eğrileri:** `learning_curves.png`
 10. **Test sonuçları:** karşılaştırma tablosu ve çubuk grafik.
 11. **Ajan ne öğrendi?** En yüksek ve en düşük Q değerli durumlar; insan sezgisiyle karşılaştırma.
