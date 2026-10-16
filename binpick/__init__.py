@@ -1,6 +1,6 @@
 """Bin picking için tablo tabanlı pekiştirmeli öğrenme (derin öğrenme yok)."""
 
-from .agents import HeuristicAgent, QLearningAgent, RandomAgent, SarsaAgent, load_run, make_agent
+from .agents import HeuristicAgent, HeuristicFaceAgent, QLearningAgent, RandomAgent, SarsaAgent, load_run, make_agent
 from .config import AgentConfig, EnvConfig, ExperimentConfig, FeatureConfig, GripperConfig
 from .env import COLLISION, FAIL, SUCCESS, Action, BinPickingEnv, Part
 from .features import FeatureExtractor
@@ -26,6 +26,7 @@ __all__ = [
     "FeatureExtractor",
     "GripperConfig",
     "HeuristicAgent",
+    "HeuristicFaceAgent",
     "Part",
     "QLearningAgent",
     "RandomAgent",

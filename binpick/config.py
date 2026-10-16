@@ -82,6 +82,7 @@ class FeatureConfig:
     neighbor_radius: int = 3
     neighbor_thr: float = 1.5              # yakında daha yüksek bir şey var mı
     face_ring: int = 2                     # vakum: düz yüzeyin çevresinde daha yüksek yüzey aranan genişlik
+    face_feature: bool = True              # vakum: `yüzey_kapalı` tabloya girsin mi (False → 216 hücre, ablasyon)
     wall_margin: float = 2.0               # duvara "yakın" sayılan mesafe
     clear_bins: tuple = (0.0, 1.0)         # parmak bölgesi boşluğu: boş / sınırda / dolu
     seal_bins: tuple = (0.95, 0.85)        # vakum: iyi / orta / kötü

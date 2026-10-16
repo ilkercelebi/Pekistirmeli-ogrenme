@@ -62,6 +62,7 @@ class HeuristicAgent(BaseAgent):
     """
 
     name = "heuristic"
+    use_face = False
 
     def act(self, feats, explore=False):
         safe = np.stack([w > 0 for w in feats.raw["wall"]]) & feats.valid   # (A, H, W)
@@ -75,6 +76,9 @@ class HeuristicAgent(BaseAgent):
             # ve kutu değişmediği için aynı başarısız kavrama tekrar tekrar denenir.
             on_part = np.isfinite(h) & (feats.raw["level"] > 0)
             fits = on_part & (seal >= 0.85)
+            face = feats.raw.get("face_higher")
+            if self.use_face and face is not None and (fits & (face == 0)).any():
+                fits &= face == 0
             if fits.any():
                 h = np.where(fits, h, -np.inf)
             elif on_part.any():
@@ -87,6 +91,19 @@ class HeuristicAgent(BaseAgent):
             angles = angles[ext == ext.min()]
         k = int(self.rng.choice(angles))
         return Action(k, int(r), int(c)), int(feats.state_ids[k, r, c])
+
+
+class HeuristicFaceAgent(HeuristicAgent):
+    """Sezgisel + yüzey bilgisi: vakumda, Q-learning'e verilen `yüzey_kapalı` bilgisini de kullanır.
+
+    Aynı kural, yalnız aday noktalar önce üzerinde durdukları düz yüzey daha yüksek bir yüzeye
+    değmeyenlerle (`face_higher == 0`) sınırlanır; böyle nokta yoksa sezgiselin kuralına dönülür.
+    Öğrenen ajanla aynı bilgiye sahip elle yazılmış bir kuraldır: vakumdaki kazancın öğrenmeden mi
+    yoksa yalnızca ek bilgiden mi geldiğini ayırmak için. Parmaklı tutucuda sezgiselle aynıdır.
+    """
+
+    name = "heuristic_face"
+    use_face = True
 
 
 class TabularAgent(BaseAgent):
@@ -181,6 +198,8 @@ def make_agent(name: str, n_states: int, cfg: AgentConfig | None = None, seed=No
         return RandomAgent(seed)
     if name == "heuristic":
         return HeuristicAgent(seed)
+    if name == "heuristic_face":
+        return HeuristicFaceAgent(seed)
     cfg = cfg or AgentConfig()
     cfg.algo = name
     if name == "q_learning":

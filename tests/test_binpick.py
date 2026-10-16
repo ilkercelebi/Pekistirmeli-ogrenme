@@ -99,6 +99,35 @@ def test_vacuum_face_feature_sees_cover_beyond_neighbor_radius():
     assert raw["face_higher"][21, 26] == 0
 
 
+def test_vacuum_face_feature_flag_sets_table_size():
+    cfg = ExperimentConfig()
+    cfg.gripper.kind = "vacuum"
+    assert build(cfg)[1].n_states == 432
+    cfg.features.face_feature = False
+    _, fe = build(cfg)
+    assert fe.n_states == 216 and "yüzey_kapalı" not in fe.names
+    # sezgisel + yüzey bilgisi için ham harita yine hesaplanır
+    assert fe.compute(build(cfg, seed=0)[0].reset(seed=1)).raw["face_higher"] is not None
+
+
+def test_heuristic_face_skips_covered_face():
+    """Küçük bir parça (vantuz oturmaz) büyük parçanın üstünde: sezgisel büyük parçayı seçip başarısız olur,
+    yüzey bilgisi verilen sezgisel açıktaki alçak parçayı seçer."""
+    _, env, fe = make_env("vacuum")
+
+    def scene():
+        return env.reset(parts=[box(21, 21, length=14, width=8, thickness=5), box(21, 17, length=2, width=1, thickness=2),
+                                box(10, 34, length=6, width=6, thickness=2)])
+
+    feats = fe.compute(scene())
+    outcomes = {}
+    for name in ("heuristic", "heuristic_face"):
+        scene()
+        action, _ = make_agent(name, 0, seed=0).act(feats)
+        outcomes[name] = env.step(action)[4]["outcome"]
+    assert outcomes == {"heuristic": FAIL, "heuristic_face": SUCCESS}
+
+
 @pytest.mark.parametrize("kind", ["parallel_jaw", "vacuum"])
 def test_feature_ids_in_range(kind):
     _, env, fe = make_env(kind)
@@ -121,7 +150,7 @@ def test_feature_wall_matches_env_collision():
         assert predicted == env._wall_hit((r, c), float(env.angles[k]))
 
 
-@pytest.mark.parametrize("algo", ["q_learning", "sarsa", "random", "heuristic"])
+@pytest.mark.parametrize("algo", ["q_learning", "sarsa", "random", "heuristic", "heuristic_face"])
 def test_agents_run_and_learn(algo):
     cfg, env, fe = make_env(no_slip=False)
     agent = make_agent(algo, fe.n_states, cfg.agent, seed=0)

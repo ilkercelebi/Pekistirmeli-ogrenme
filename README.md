@@ -132,6 +132,7 @@ $$Q[\phi(s,a)] \leftarrow Q[\phi(s,a)] + \alpha \left( r + \gamma \max_{a'} Q[\p
 
 - **Rastgele:** aday eylemlerden düzgün dağılımla seçim (alt sınır).
 - **Sezgisel (en yüksek nokta):** duvara çarpmayan açılar arasından, en yüksek noktada ölçülen genişliği en küçük açıyı seçer. Endüstride sık kullanılan, elle yazılmış bir kuraldır. Vakumlu tutucuda, ölçülen sızdırmazlığı %85'in üstünde olan en yüksek parça noktasını seçer.
+- **Sezgisel + yüzey bilgisi (yalnız vakum):** aynı kural, ama Q-learning'e verilen *yüzeyi kapatan parça* özelliğini de kullanır: aday noktalar önce üzerinde durdukları düz yüzey daha yüksek bir yüzeye değmeyenlerle sınırlanır (böyle nokta yoksa sezgiselin kuralına dönülür). Öğrenen ajanla aynı bilgiye sahip olduğundan, vakumdaki kazancın öğrenmeden mi yoksa yalnızca ek bilgiden mi geldiğini ayırmaya yarar.
 
 ---
 
@@ -139,12 +140,12 @@ $$Q[\phi(s,a)] \leftarrow Q[\phi(s,a)] + \alpha \left( r + \gamma \max_{a'} Q[\p
 
 | Parametre | Değer |
 |---|---|
-| Yöntemler | Rastgele, Sezgisel, Q-learning, SARSA |
+| Yöntemler | Rastgele, Sezgisel, Sezgisel + yüzey bilgisi (vakum), Q-learning, SARSA |
 | Tutucular | Parmaklı, vakumlu |
 | Eğitim | yöntem ve tutucu başına 3 tohum (0, 1, 2) × 3000 bölüm; ε eğitimin ilk yarısında 1.0 → 0.05 |
 | Ara değerlendirme | her 250 bölümde 20 kutuda açgözlü (ε = 0) politika |
 | Test | eğitimde görülmemiş 200 sabit tohumlu kutu, $\varepsilon = 0$; tüm yöntemler aynı kutularda |
-| Ablasyon | Q-learning, parmaklı: γ ∈ {0, 0.5, 0.9}, sabit α, tek bilek açısı |
+| Ablasyon | Q-learning, parmaklı (tohum 0): γ ∈ {0, 0.5, 0.9}, sabit α, tek bilek açısı; vakum (3 tohum): *yüzeyi kapatan parça* özelliği olmadan (216 hücrelik tablo) |
 
 Bütün deney tek komutla tekrar üretilebilir: `python run_experiments.py --ablation` (bkz. [Kurulum](#kurulum-ve-çalıştırma)).
 
@@ -180,6 +181,7 @@ _Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 toh
 |---|---|---|---|---|---|---|
 | Rastgele | %3.4 | %10.1 | %86.5 | %8.5 | -5.85 | 24.68 |
 | Sezgisel | %60.6 | %0.0 | %39.4 | %86.0 | 6.61 | 17.19 |
+| Sezgisel + yüzey bilgisi | %61.8 | %0.0 | %38.2 | %88.9 | 6.99 | 17.19 |
 | **Q-learning** (3 tohum) | %64.3 ± 0.5 | %0.1 ± 0.1 | %35.6 ± 0.5 | %88.4 ± 0.3 | 6.96 ± 0.05 | 16.92 ± 0.09 |
 | SARSA (3 tohum) | %64.3 ± 0.3 | %0.0 ± 0.0 | %35.7 ± 0.3 | %88.4 ± 0.3 | 6.99 ± 0.04 | 16.92 ± 0.04 |
 
@@ -207,6 +209,8 @@ _Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 toh
 
 ### 6.4 Ablasyon
 
+**Parmaklı tutucu** (Q-learning, tohum 0)
+
 | Değişiklik | Başarı oranı | Çarpışma oranı | Boşaltılan parça | Getiri |
 |---|---|---|---|---|
 | γ = 0 (tek adımlık, bandit) | %31.4 | %0.0 | %47.5 | 0.95 |
@@ -216,6 +220,19 @@ _Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 toh
 | tek bilek açısı (θ öğrenilmiyor) | %47.4 | %0.1 | %71.8 | 4.25 |
 
 ![Ablasyon](docs/img/ablation.png)
+
+**Vakumlu tutucu: kazanç öğrenmeden mi, yalnızca ek bilgiden mi?** Sezgisele Q-learning'in gördüğü `yüzey_kapalı` bilgisi verilir (aday noktalar önce üzerinde durdukları düz yüzey daha yüksek bir yüzeye değmeyenlerle sınırlanır); Q-learning de bu özellik olmadan eğitilir.
+
+| Yöntem | Yüzey bilgisi | Q tablosu | Başarı oranı | Çarpışma oranı | Boşaltılan parça | Getiri |
+|---|---|---|---|---|---|---|
+| Sezgisel | yok | — | %60.6 | %0.0 | %86.0 | 6.61 |
+| Sezgisel + yüzey bilgisi | var | — | %61.8 | %0.0 | %88.9 | 6.99 |
+| Q-learning (3 tohum) | yok | 216 hücre | %51.3 ± 1.8 | %0.1 ± 0.2 | %77.8 ± 0.3 | 5.21 ± 0.04 |
+| Q-learning (3 tohum) | var | 432 hücre | %64.3 ± 0.5 | %0.1 ± 0.1 | %88.4 ± 0.3 | 6.96 ± 0.05 |
+
+Yüzey bilgisinin etkisi (başarı oranı, puan): sezgiselde **+1.2**, Q-learning'de **+13.0**. Öğrenmenin aynı bilgiye sahip kurala göre etkisi: yüzey bilgisi olmadan **-9.3** (Q-learning 216 hücre − sezgisel), yüzey bilgisiyle **+2.5** (Q-learning 432 hücre − sezgisel + yüzey bilgisi).
+
+![Vakum ablasyonu](docs/img/ablation_vacuum.png)
 <!-- SONUCLAR:BITIR -->
 
 ### Yorum
@@ -277,7 +294,7 @@ pytest -q                 # simülasyon, ajanlar, API
 
 # TÜM DENEY tek komutla: eğitim → değerlendirme → grafikler → GIF'ler → README (bölüm 6 ve özet)
 python run_experiments.py --quick        # önce hızlı deneme (~1-2 dk, results/quick/, README'ye dokunmaz)
-python run_experiments.py --ablation     # tam deney (12 eğitim + 5 ablasyon, 10 çekirdekte ~15-30 dk)
+python run_experiments.py --ablation     # tam deney (12 eğitim + 8 ablasyon, 10 çekirdekte ~15-30 dk)
 python run_experiments.py --skip-train   # eğitim yapmadan raporu yeniden üret
 # yarıda kesilirse aynı komut kaldığı yerden devam eder; baştan eğitmek için --force
 

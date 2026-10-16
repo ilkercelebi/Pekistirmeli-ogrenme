@@ -37,3 +37,25 @@ def test_pipeline_end_to_end(tmp_path):
     rx.main(args)
     text = readme.read_text()
     assert text.count("<!-- SONUCLAR:BASLA") == 1 and text.count("**Ana bulgu:**") == 1
+
+
+def test_vacuum_ablation_compares_information_and_learning(tmp_path):
+    readme = tmp_path / "README.md"
+    shutil.copy(ROOT / "README.md", readme)
+    out, img = tmp_path / "results", tmp_path / "img"
+    rx.main(["--episodes", "4", "--seeds", "0", "1", "--algos", "q_learning", "--grippers", "vacuum", "--ablation",
+             "--test-boxes", "1", "--eval-episodes", "1", "--workers", "1", "--no-gifs",
+             "--out", str(out), "--readme", str(readme), "--img-dir", str(img)])
+
+    # yalnız vakum satırı çalışır, ana deneyle aynı tohumlarla; parmaklı ablasyonu atlanır
+    assert sorted(p.name for p in (out / "ablation").iterdir()) == ["vacuum_noface_s0", "vacuum_noface_s1"]
+    cfg = json.loads((out / "ablation" / "vacuum_noface_s0" / "config.json").read_text())
+    assert cfg["features"]["face_feature"] is False
+    agg = json.loads((out / "report" / "summary_vacuum.json").read_text())
+    assert {"heuristic", "heuristic_face", "q_learning"} <= set(agg)
+    assert (img / "ablation_vacuum.png").exists() and not (img / "ablation.png").exists()
+
+    text = readme.read_text()
+    assert "| Sezgisel + yüzey bilgisi | var | — |" in text
+    assert "| Q-learning (2 tohum) | yok | 216 hücre |" in text and "| Q-learning (2 tohum) | var | 432 hücre |" in text
+    assert "Yüzey bilgisinin etkisi" in text

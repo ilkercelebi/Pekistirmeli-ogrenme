@@ -110,8 +110,11 @@ class FeatureExtractor:
 
         g = self.g
         if g.kind == "vacuum":
-            self.names = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "sızdırmazlık", "yüzey_kapalı"]
-            self.dims = [4, 3, 2, 3, 3, 2]
+            self.names = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "sızdırmazlık"]
+            self.dims = [4, 3, 2, 3, 3]
+            if self.f.face_feature:
+                self.names.append("yüzey_kapalı")
+                self.dims.append(2)
             self.cup_offsets = geometry.cup_offsets(g)
         else:
             self.names = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "parmak_boşluğu", "genişlik", "ortalı"]
@@ -179,7 +182,7 @@ class FeatureExtractor:
             raw["wall"].append(wall)
 
             if g.kind == "vacuum":
-                feats = [level, flat, higher, wall, seal_bin, face_higher]
+                feats = [level, flat, higher, wall, seal_bin] + ([face_higher] if f.face_feature else [])
             else:
                 max_f = ndimage.maximum_filter(h_obs, footprint=self.finger_k[k], mode="constant", cval=self.ecfg.wall_height)
                 clear = max_f - (h - g.grasp_depth)

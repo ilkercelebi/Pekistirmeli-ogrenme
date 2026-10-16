@@ -1,7 +1,7 @@
 """Tüm deneyi tek komutla çalıştırır: eğitim → değerlendirme → grafikler → GIF'ler → README.
 
     python run_experiments.py                 # tam deney (2 algoritma × 2 tutucu × 3 tohum × 3000 bölüm)
-    python run_experiments.py --ablation      # + γ ve öğrenme hızı taraması (Q-learning, parmaklı)
+    python run_experiments.py --ablation      # + ablasyon (Q-learning): parmaklıda γ/α/açı, vakumda yüzey_kapalı
     python run_experiments.py --quick         # hızlı deneme: 1 tohum, 300 bölüm, results/quick/ altına
     python run_experiments.py --skip-train    # eğitim yapmadan mevcut sonuçlardan raporu yeniden üret
 
@@ -46,17 +46,26 @@ ROOT = Path(__file__).resolve().parent
 TEST_SEED0 = 2_000_000           # eğitimde hiç görülmeyen test kutuları (evaluate.py ile aynı)
 GIF_SEED = 7
 METRICS = ["success_rate", "collision_rate", "fail_rate", "cleared", "return", "steps"]
-LABEL = {"random": "Rastgele", "heuristic": "Sezgisel", "q_learning": "Q-learning", "sarsa": "SARSA"}
+LABEL = {"random": "Rastgele", "heuristic": "Sezgisel", "heuristic_face": "Sezgisel + yüzey bilgisi",
+         "q_learning": "Q-learning", "sarsa": "SARSA"}
 GRIPPER = {"parallel_jaw": "Parmaklı tutucu", "vacuum": "Vakumlu tutucu"}
-COLOR = {"random": "#8b949e", "heuristic": "#58a6ff", "q_learning": "#ff7a1a", "sarsa": "#bc8cff"}
+COLOR = {"random": "#8b949e", "heuristic": "#58a6ff", "heuristic_face": "#3fb950", "q_learning": "#ff7a1a",
+         "sarsa": "#bc8cff"}
+METHODS = ["random", "heuristic", "heuristic_face", "q_learning", "sarsa"]
+BASELINES = {"parallel_jaw": ["random", "heuristic"],
+             # vakumda sezgisele Q-learning'in gördüğü yüzey_kapalı bilgisi de verilir (adil karşılaştırma)
+             "vacuum": ["random", "heuristic", "heuristic_face"]}
 
-# Ablasyon: Q-learning, parmaklı tutucu. Her satır (isim, açıklama, konfigürasyon değişikliği).
+# Ablasyon: Q-learning. Her satır (isim, tutucu, açıklama, konfigürasyon değişikliği, tüm tohumlar mı).
+# Tek tohumlu satırlar yalnız tohum 0 ile eğitilir (ablation/<isim>); tüm tohumlu satırlar ana deneyle
+# aynı tohumlarla (ablation/<isim>_s<tohum>), böylece ana deneydeki karşılığıyla ± değerleri karşılaştırılabilir.
 ABLATIONS = [
-    ("gamma0.0", "γ = 0 (tek adımlık, bandit)", {"agent.gamma": 0.0}),
-    ("gamma0.5", "γ = 0.5 (varsayılan)", {"agent.gamma": 0.5}),
-    ("gamma0.9", "γ = 0.9", {"agent.gamma": 0.9}),
-    ("alpha_const", "sabit α = 0.1", {"agent.alpha_mode": "constant", "agent.alpha": 0.1}),
-    ("angles1", "tek bilek açısı (θ öğrenilmiyor)", {"gripper.n_angles": 1}),
+    ("gamma0.0", "parallel_jaw", "γ = 0 (tek adımlık, bandit)", {"agent.gamma": 0.0}, False),
+    ("gamma0.5", "parallel_jaw", "γ = 0.5 (varsayılan)", {"agent.gamma": 0.5}, False),
+    ("gamma0.9", "parallel_jaw", "γ = 0.9", {"agent.gamma": 0.9}, False),
+    ("alpha_const", "parallel_jaw", "sabit α = 0.1", {"agent.alpha_mode": "constant", "agent.alpha": 0.1}, False),
+    ("angles1", "parallel_jaw", "tek bilek açısı (θ öğrenilmiyor)", {"gripper.n_angles": 1}, False),
+    ("vacuum_noface", "vacuum", "yüzey_kapalı yok (216 hücre)", {"features.face_feature": False}, True),
 ]
 
 
@@ -125,7 +134,7 @@ def _brief(result) -> str:
 
 def eval_job(job: dict) -> tuple[str, dict]:
     """Alt süreçte çalışır: bir yöntemi test kutularında değerlendirir (keşif kapalı)."""
-    if job["method"] in ("random", "heuristic"):
+    if job["method"] in ("random", "heuristic", "heuristic_face"):
         cfg = make_cfg("q_learning", job["gripper"], 1)
         agent = make_agent(job["method"], 0, seed=0)
     else:
@@ -181,7 +190,7 @@ def plot_learning(run_dirs: dict[str, list[Path]], baselines: dict, gripper: str
             if len(dirs) > 1:
                 ax.fill_between(x, m - s, m + s, color=COLOR[algo], alpha=0.18, lw=0)
     for ax, (k, title) in zip(axes.flat, panels):
-        for b, style in (("random", ":"), ("heuristic", "--")):
+        for b, style in (("random", ":"), ("heuristic", "--"), ("heuristic_face", "-.")):
             if b in baselines:
                 ax.axhline(baselines[b][k], color=COLOR[b], ls=style, lw=1.5, label=f"{LABEL[b]} (test)")
         ax.set_title(title)
@@ -205,8 +214,9 @@ def plot_greedy(run_dirs: dict[str, list[Path]], baselines: dict, gripper: str, 
             ax.errorbar(x, ys.mean(0), yerr=ys.std(0) if len(dirs) > 1 else None, color=COLOR[algo],
                         marker="o", ms=3.5, lw=1.8, capsize=2, label=LABEL[algo])
     for ax, (k, t) in zip(axes, (("success_rate", "Başarı"), ("collision_rate", "Çarpışma"), ("cleared", "Boşaltma"))):
-        if "heuristic" in baselines:
-            ax.axhline(baselines["heuristic"][k], color=COLOR["heuristic"], ls="--", lw=1.5, label="Sezgisel")
+        for b, style in (("heuristic", "--"), ("heuristic_face", "-.")):
+            if b in baselines:
+                ax.axhline(baselines[b][k], color=COLOR[b], ls=style, lw=1.5, label=LABEL[b])
         ax.set_title(f"Açgözlü politika (ε = 0): {t}")
         ax.set_xlabel("eğitim bölümü")
         ax.set_ylim(0, 1.02)
@@ -220,7 +230,7 @@ def plot_greedy(run_dirs: dict[str, list[Path]], baselines: dict, gripper: str, 
 def plot_bars(agg: dict, gripper: str, path: Path, n_boxes: int):
     keys = [("success_rate", "Başarı oranı"), ("collision_rate", "Çarpışma oranı"),
             ("fail_rate", "Başarısız kavrama"), ("cleared", "Boşaltılan parça")]
-    methods = [m for m in ("random", "heuristic", "q_learning", "sarsa") if m in agg]
+    methods = [m for m in METHODS if m in agg]
     x = np.arange(len(keys))
     w = 0.8 / len(methods)
     fig, ax = plt.subplots(figsize=(10, 4.4))
@@ -261,20 +271,23 @@ def plot_qtable(run_dir: Path, gripper: str, path: Path):
     plt.close(fig)
 
 
-def plot_ablation(rows: list[tuple[str, dict]], path: Path):
+def plot_ablation(rows: list[tuple[str, dict]], path: Path, title: str):
     fig, ax = plt.subplots(figsize=(9, 3.8))
     names = [r[0] for r in rows]
     succ = [r[1]["success_rate"] for r in rows]
     clr = [r[1]["cleared"] for r in rows]
+    err = [[r[1].get(k + "_seed_std") or 0 for r in rows] for k in ("success_rate", "cleared")]
     x = np.arange(len(rows))
-    b1 = ax.bar(x - 0.2, succ, 0.4, color="#ff7a1a", label="Başarı oranı")
-    b2 = ax.bar(x + 0.2, clr, 0.4, color="#39c5cf", label="Boşaltılan parça")
+    b1 = ax.bar(x - 0.2, succ, 0.4, yerr=err[0] if any(err[0]) else None, capsize=3, color="#ff7a1a",
+                label="Başarı oranı")
+    b2 = ax.bar(x + 0.2, clr, 0.4, yerr=err[1] if any(err[1]) else None, capsize=3, color="#39c5cf",
+                label="Boşaltılan parça")
     ax.bar_label(b1, labels=[f"{v * 100:.0f}" for v in succ], fontsize=8, padding=2)
     ax.bar_label(b2, labels=[f"{v * 100:.0f}" for v in clr], fontsize=8, padding=2)
     ax.set_xticks(x, names, fontsize=8.5)
     ax.set_ylim(0, 1.12)
     ax.legend(fontsize=8)
-    ax.set_title("Ablasyon: Q-learning, parmaklı tutucu (test kutuları)")
+    ax.set_title(title)
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
@@ -314,7 +327,7 @@ def results_table(agg: dict) -> str:
     head = "| Yöntem | Başarı oranı | Çarpışma oranı | Başarısız kavrama | Boşaltılan parça | Getiri | Adım |"
     lines = [head, "|---|---|---|---|---|---|---|"]
     best = max((m for m in agg), key=lambda m: agg[m]["success_rate"])
-    for m in ("random", "heuristic", "q_learning", "sarsa"):
+    for m in METHODS:
         if m not in agg:
             continue
         a = agg[m]
@@ -353,6 +366,50 @@ def replace_block(text: str, tag: str, body: str) -> str:
     return pattern.sub(lambda m: f"{m.group(1)}\n{body}\n{m.group(3)}", text)
 
 
+def n_states(gripper: str, overrides: dict | None = None) -> int:
+    _, fe = build(make_cfg("q_learning", gripper, 1, overrides))
+    return fe.n_states
+
+
+def vacuum_comparison(agg: dict, abl_rows: list) -> list[tuple[str, str, str, str, dict]]:
+    """Vakum: kazanç öğrenmeden mi, yalnızca ek bilgiden mi? (yöntem, kısa ad, yüzey bilgisi, tablo, sonuç).
+
+    Sezgisel ve sezgisel + yüzey bilgisi aynı bilgiye sahip elle yazılmış kurallardır; Q-learning'in
+    yüzey_kapalı olmadan (216 hücre) ve onunla (432 hücre) eğitilmiş tabloları bunların öğrenen karşılıklarıdır.
+    """
+    rows = [(LABEL[m], LABEL[m].replace(" + ", "\n+ "), info, "—", agg[m])
+            for m, info in (("heuristic", "yok"), ("heuristic_face", "var")) if m in agg]
+    learned = [("yok", {"features.face_feature": False}, a) for n, g, _, a in abl_rows if n == "vacuum_noface"]
+    if "q_learning" in agg:
+        learned.append(("var", {}, agg["q_learning"]))
+    for info, ov, a in learned:
+        cells = n_states("vacuum", ov)
+        rows.append((f"Q-learning ({a['n_seeds']} tohum)", f"Q-learning\n{cells} hücre", info, f"{cells} hücre", a))
+    return rows
+
+
+def vacuum_verdict(agg: dict, abl_rows: list) -> str:
+    """Bilgi etkisi ve öğrenme etkisi (başarı oranı, puan)."""
+    noface = next((a for n, g, _, a in abl_rows if n == "vacuum_noface"), None)
+    if noface is None or not all(m in agg for m in ("heuristic", "heuristic_face", "q_learning")):
+        return ""
+    h, hf = agg["heuristic"]["success_rate"], agg["heuristic_face"]["success_rate"]
+    q0, q1 = noface["success_rate"], agg["q_learning"]["success_rate"]
+    pt = lambda v: f"{v * 100:+.1f}"  # noqa: E731
+    return (f"Yüzey bilgisinin etkisi (başarı oranı, puan): sezgiselde **{pt(hf - h)}**, Q-learning'de **{pt(q1 - q0)}**. "
+            f"Öğrenmenin aynı bilgiye sahip kurala göre etkisi: yüzey bilgisi olmadan **{pt(q0 - h)}** "
+            f"(Q-learning 216 hücre − sezgisel), yüzey bilgisiyle **{pt(q1 - hf)}** "
+            f"(Q-learning 432 hücre − sezgisel + yüzey bilgisi).")
+
+
+def ablation_table(rows: list[tuple[str, dict]]) -> list[str]:
+    out = ["| Değişiklik | Başarı oranı | Çarpışma oranı | Boşaltılan parça | Getiri |", "|---|---|---|---|---|"]
+    for desc, a in rows:
+        cells = [fmt_cell(a, k, True) for k in ("success_rate", "collision_rate", "cleared")] + [fmt_cell(a, "return", False)]
+        out.append(f"| {desc} | " + " | ".join(cells) + " |")
+    return out
+
+
 def results_markdown(agg_by_gripper, ablation_rows, args, img: str, gifs: dict, qtables: dict) -> str:
     today = dt.date.today().isoformat()
     out = [f"_Bu bölüm `run_experiments.py` tarafından üretildi ({today}). Ayar: {len(args.seeds)} tohum × "
@@ -374,12 +431,23 @@ def results_markdown(agg_by_gripper, ablation_rows, args, img: str, gifs: dict, 
                     "|" + "---|" * len(items), "| " + " | ".join(f"![]({img}/{f})" for _, f in items) + " |", ""]
         sec += 1
     if ablation_rows:
-        out += [f"### 6.{sec} Ablasyon", "", "| Değişiklik | Başarı oranı | Çarpışma oranı | Boşaltılan parça | Getiri |",
-                "|---|---|---|---|---|"]
-        for (name, desc), a in ablation_rows:
-            out.append(f"| {desc} | %{a['success_rate'] * 100:.1f} | %{a['collision_rate'] * 100:.1f} | "
-                       f"%{a['cleared'] * 100:.1f} | {a['return']:.2f} |")
-        out += ["", f"![Ablasyon]({img}/ablation.png)", ""]
+        out += [f"### 6.{sec} Ablasyon", ""]
+        pj = [(desc, a) for _, g, desc, a in ablation_rows if g == "parallel_jaw"]
+        if pj:
+            out += ["**Parmaklı tutucu** (Q-learning, tohum 0)", ""] + ablation_table(pj)
+            out += ["", f"![Ablasyon]({img}/ablation.png)", ""]
+        vac = vacuum_comparison(agg_by_gripper.get("vacuum", {}), ablation_rows)
+        if any(g == "vacuum" for _, g, _, _ in ablation_rows):
+            out += ["**Vakumlu tutucu: kazanç öğrenmeden mi, yalnızca ek bilgiden mi?** Sezgisele Q-learning'in "
+                    "gördüğü `yüzey_kapalı` bilgisi verilir (aday noktalar önce üzerinde durdukları düz yüzey daha "
+                    "yüksek bir yüzeye değmeyenlerle sınırlanır); Q-learning de bu özellik olmadan eğitilir.", "",
+                    "| Yöntem | Yüzey bilgisi | Q tablosu | Başarı oranı | Çarpışma oranı | Boşaltılan parça | Getiri |",
+                    "|---|---|---|---|---|---|---|"]
+            for label, _, info, table, a in vac:
+                cells = [fmt_cell(a, k, True) for k in ("success_rate", "collision_rate", "cleared")]
+                out.append(f"| {label} | {info} | {table} | " + " | ".join(cells + [fmt_cell(a, "return", False)]) + " |")
+            verdict = vacuum_verdict(agg_by_gripper.get("vacuum", {}), ablation_rows)
+            out += [""] + ([verdict, ""] if verdict else []) + [f"![Vakum ablasyonu]({img}/ablation_vacuum.png)", ""]
     return "\n".join(out).rstrip()
 
 
@@ -426,23 +494,28 @@ def main(argv=None):
     jobs = [{"name": f"{algo}_{g}_s{s}", "dir": str(out / f"{algo}_{g}_s{s}"), "algo": algo, "gripper": g,
              "seed": s, "episodes": a.episodes, "eval_episodes": a.eval_episodes, "force": a.force}
             for g in a.grippers for algo in a.algos for s in a.seeds]
-    abl_jobs = [{"name": f"ablation/{name}", "dir": str(out / "ablation" / name), "algo": "q_learning",
-                 "gripper": "parallel_jaw", "seed": 0, "episodes": a.episodes, "eval_episodes": a.eval_episodes,
-                 "force": a.force, "overrides": ov} for name, _, ov in ABLATIONS] if a.ablation else []
+    ablations = [r for r in ABLATIONS if r[1] in a.grippers] if a.ablation else []
+    abl_jobs = []
+    for name, g, _, ov, all_seeds in ablations:
+        for s in (a.seeds if all_seeds else [0]):
+            d = f"{name}_s{s}" if all_seeds else name
+            abl_jobs.append({"name": f"ablation/{d}", "row": name, "dir": str(out / "ablation" / d), "algo": "q_learning",
+                             "gripper": g, "seed": s, "episodes": a.episodes, "eval_episodes": a.eval_episodes,
+                             "force": a.force, "overrides": ov})
     if not a.skip_train:
         run_pool(train_job, jobs + abl_jobs, a.workers, "Eğitim")
 
     # 2) değerlendirme
     ejobs = []
     for g in a.grippers:
-        for m in ("random", "heuristic"):
+        for m in BASELINES[g]:
             ejobs.append({"key": f"{m}|{g}", "method": m, "gripper": g, "n": a.test_boxes})
         for j in jobs:
             if j["gripper"] == g and is_complete(Path(j["dir"]), 1):
                 ejobs.append({"key": f"{j['name']}|{g}", "method": j["algo"], "dir": j["dir"], "gripper": g, "n": a.test_boxes})
     for j in abl_jobs:
         if is_complete(Path(j["dir"]), 1):
-            ejobs.append({"key": f"{j['name']}|abl", "method": "q_learning", "dir": j["dir"], "gripper": "parallel_jaw", "n": a.test_boxes})
+            ejobs.append({"key": f"{j['name']}|abl", "method": "q_learning", "dir": j["dir"], "gripper": j["gripper"], "n": a.test_boxes})
     per_run = dict(run_pool(eval_job, ejobs, a.workers, "Değerlendirme"))
 
     agg_by_gripper, run_dirs_by_gripper = {}, {}
@@ -452,7 +525,7 @@ def main(argv=None):
         for k, v in sorted(per_run.items()):
             w.writerow([k] + [round(v[m], 4) for m in METRICS])
     for g in a.grippers:
-        groups = {"random": [f"random|{g}"], "heuristic": [f"heuristic|{g}"]}
+        groups = {m: [f"{m}|{g}"] for m in BASELINES[g]}
         dirs = {}
         for algo in a.algos:
             names = [j["name"] for j in jobs if j["gripper"] == g and j["algo"] == algo and f"{j['name']}|{g}" in per_run]
@@ -480,19 +553,27 @@ def main(argv=None):
                 qtables[g] = f"qtable_{g}.png"
                 plot_qtable(best, g, report / qtables[g])
         plot_bars(agg_by_gripper[g], g, report / f"bars_{g}.png", a.test_boxes)
-    abl_rows = []
-    if abl_jobs:
-        for (name, desc, _), j in zip(ABLATIONS, abl_jobs):
-            key = f"{j['name']}|abl"
-            if key in per_run:
-                abl_rows.append(((name, desc), per_run[key]))
-        if abl_rows:
-            plot_ablation([(n, r) for (n, _), r in abl_rows], report / "ablation.png")
-            with open(report / "ablation.csv", "w", newline="") as f:
-                w = csv.writer(f)
-                w.writerow(["name", "description"] + METRICS)
-                for (n, d), r in abl_rows:
-                    w.writerow([n, d] + [round(r[m], 4) for m in METRICS])
+    abl_rows = []   # (isim, tutucu, açıklama, tohumlar üzerinden birleştirilmiş sonuç)
+    for name, g, desc, _, _ in ablations:
+        keys = [f"{j['name']}|abl" for j in abl_jobs if j["row"] == name]
+        row = aggregate(per_run, {name: keys}).get(name)
+        if row:
+            abl_rows.append((name, g, desc, row))
+    if abl_rows:
+        pj = [(n, r) for n, g, _, r in abl_rows if g == "parallel_jaw"]
+        if pj:
+            plot_ablation(pj, report / "ablation.png", "Ablasyon: Q-learning, parmaklı tutucu (test kutuları)")
+        vac = vacuum_comparison(agg_by_gripper.get("vacuum", {}), abl_rows)
+        if any(g == "vacuum" for _, g, _, _ in abl_rows):
+            plot_ablation([(short, r) for _, short, _, _, r in vac],
+                          report / "ablation_vacuum.png",
+                          "Vakumlu tutucu: sezgisel ve Q-learning, yüzey_kapalı bilgisiyle ve bilgisi olmadan")
+        with open(report / "ablation.csv", "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["name", "gripper", "description", "n_seeds"] + METRICS + [m + "_seed_std" for m in METRICS])
+            for n, g, d, r in abl_rows:
+                w.writerow([n, g, d, r["n_seeds"]] + [round(r[m], 4) for m in METRICS]
+                           + ["" if r[m + "_seed_std"] is None else round(r[m + "_seed_std"], 4) for m in METRICS])
 
     # 4) GIF'ler: aynı kutuda rastgele, sezgisel ve en iyi öğrenen ajan
     gifs = {}
