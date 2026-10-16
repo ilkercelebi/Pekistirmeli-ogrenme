@@ -32,6 +32,7 @@ export const FEATURE_TITLE: Record<string, string> = {
   genişlik: "Genişlik",
   ortalı: "Ortalı",
   sızdırmazlık: "Sızdırmazlık",
+  yüzey_kapalı: "Yüzeyi kapatan parça",
 };
 
 // Yükseklik renk skalası (zemin koyu petrol → yüksek parça açık kehribar)

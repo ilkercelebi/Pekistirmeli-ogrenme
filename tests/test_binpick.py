@@ -88,6 +88,17 @@ def test_covered_part_cannot_be_lifted():
     assert info["outcome"] == SUCCESS
 
 
+def test_vacuum_face_feature_sees_cover_beyond_neighbor_radius():
+    _, env, fe = make_env("vacuum")
+    obs = env.reset(parts=[box(21, 21, length=14, width=6), box(21, 26, length=6, width=6)])
+    raw = fe.compute(obs).raw
+    # alttaki parçanın üstteki parçadan uzak ucu: yerel "yakında yüksek" görmez, yüzey özelliği görür
+    assert raw["higher"][21, 16] == 0
+    assert raw["face_higher"][21, 16] == 1
+    # üstteki parçanın yüzü açık
+    assert raw["face_higher"][21, 26] == 0
+
+
 @pytest.mark.parametrize("kind", ["parallel_jaw", "vacuum"])
 def test_feature_ids_in_range(kind):
     _, env, fe = make_env(kind)

@@ -81,6 +81,7 @@ class FeatureConfig:
     flat_bins: tuple = (0.3, 1.0)          # yerel standart sapma: düz / hafif / pürüzlü
     neighbor_radius: int = 3
     neighbor_thr: float = 1.5              # yakında daha yüksek bir şey var mı
+    face_ring: int = 2                     # vakum: düz yüzeyin çevresinde daha yüksek yüzey aranan genişlik
     wall_margin: float = 2.0               # duvara "yakın" sayılan mesafe
     clear_bins: tuple = (0.0, 1.0)         # parmak bölgesi boşluğu: boş / sınırda / dolu
     seal_bins: tuple = (0.95, 0.85)        # vakum: iyi / orta / kötü

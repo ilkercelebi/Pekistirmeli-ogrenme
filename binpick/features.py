@@ -38,6 +38,7 @@ BIN_LABELS = {
     "genişlik": [("sığar", "good"), ("sınırda", "mid"), ("çok geniş", "bad")],
     "ortalı": [("kenarda", "mid"), ("ortada", "good")],
     "sızdırmazlık": [("iyi", "good"), ("orta", "mid"), ("kötü", "bad")],
+    "yüzey_kapalı": [("yok", "good"), ("var", "bad")],
 }
 
 FEATURE_INFO = {
@@ -49,6 +50,8 @@ FEATURE_INFO = {
     "genişlik": "θ yönünde ölçülen yüzey genişliği, tutucu açıklığına sığıyor mu?",
     "ortalı": "Nokta, yüzeyin θ yönündeki ortasına yakın mı?",
     "sızdırmazlık": "Vantuz altındaki alanın ne kadarı aynı düz yüzey?",
+    "yüzey_kapalı": "Noktanın üzerinde durduğu düz yüzey (parçanın görünen üst yüzü) kenarında daha yüksek bir "
+    "yüzeye değiyor mu? Değiyorsa başka bir parça bu parçanın üstüne binmiş olabilir.",
 }
 
 
@@ -70,6 +73,33 @@ def _shift(a: np.ndarray, dr: int, dc: int, fill: float) -> np.ndarray:
     return out
 
 
+def face_touches_higher(h: np.ndarray, interior: np.ndarray, tol: float, thr: float, ring: int) -> np.ndarray:
+    """Her parça pikseli için: içinde bulunduğu düz yüzey, kenarında belirgin daha yüksek bir yüzeye değiyor mu?
+
+    `yakında_yüksek` yalnızca noktanın birkaç hücre çevresine bakar; üstü kapalı bir parçanın, üstteki
+    parçadan uzak düz bölgeleri ise yerel olarak açık bir parçadan ayırt edilemez. Burada görünen
+    yüzeyler bölütlenir (komşu yükseklik farkı `tol` altındaki bağlı bölgeler) ve özellik bölge
+    düzeyinde hesaplanır: bölgenin `ring` hücrelik çevresinde bölge yüksekliğinden `thr` kadar yüksek
+    bir nokta varsa bölgedeki bütün pikseller işaretlenir. Bir parçanın üstüne binen parça her zaman
+    daha yüksektir ve o parçanın görünen yüzüne bitişiktir; bu yüzden bu bilgi ortamın "üstü kapalı"
+    kuralının gözlemlenebilir karşılığıdır (öğrenme yok, sabit görüntü işleme).
+    """
+    on_part = interior & (h > 0.5)
+    span = ndimage.maximum_filter(h, 3, mode="nearest") - ndimage.minimum_filter(h, 3, mode="nearest")
+    lab, n = ndimage.label(on_part & (span < tol))
+    if n == 0:
+        return np.zeros(h.shape, dtype=int)
+    idx = np.arange(1, n + 1)
+    level = np.concatenate([[0.0], ndimage.median(h, lab, idx)])
+    around = ndimage.maximum_filter(np.where(interior, h, 0.0), size=2 * ring + 1, mode="nearest")
+    flag = np.concatenate([[False], np.asarray(ndimage.maximum(around, lab, idx)) > level[1:] + thr])
+    # Yüzey kenarındaki (3×3 içinde basamak olan) pikseller en yakın yüzeye, yükseklikleri uyuyorsa katılır.
+    _, (ri, ci) = ndimage.distance_transform_edt(lab == 0, return_indices=True)
+    nearest = lab[ri, ci]
+    lab = np.where((lab == 0) & on_part & (np.abs(h - level[nearest]) < tol), nearest, lab)
+    return (flag[lab] & (lab > 0)).astype(int)
+
+
 class FeatureExtractor:
     def __init__(self, env_cfg: EnvConfig, gripper_cfg: GripperConfig, feat_cfg: FeatureConfig, wall_mask: np.ndarray):
         self.ecfg, self.g, self.f = env_cfg, gripper_cfg, feat_cfg
@@ -80,8 +110,8 @@ class FeatureExtractor:
 
         g = self.g
         if g.kind == "vacuum":
-            self.names = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "sızdırmazlık"]
-            self.dims = [4, 3, 2, 3, 3]
+            self.names = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "sızdırmazlık", "yüzey_kapalı"]
+            self.dims = [4, 3, 2, 3, 3, 2]
             self.cup_offsets = geometry.cup_offsets(g)
         else:
             self.names = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "parmak_boşluğu", "genişlik", "ortalı"]
@@ -128,7 +158,8 @@ class FeatureExtractor:
         A = len(self.angles)
         shape = (A,) + h.shape
         ids = np.zeros(shape, dtype=np.int64)
-        raw = {"height": h, "level": level, "std": std, "higher": higher, "wall": [], "extent": [], "clear": [], "seal": None}
+        raw = {"height": h, "level": level, "std": std, "higher": higher, "wall": [], "extent": [], "clear": [], "seal": None,
+               "face_higher": None}
         h_obs = np.where(self.wall, self.ecfg.wall_height, h)
 
         seal_bin = None
@@ -139,6 +170,7 @@ class FeatureExtractor:
             seal = same / len(self.cup_offsets)
             raw["seal"] = seal
             seal_bin = np.where(seal >= f.seal_bins[0], 0, np.where(seal >= f.seal_bins[1], 1, 2))
+            raw["face_higher"] = face_higher = face_touches_higher(h, self.interior, g.surface_tol, f.neighbor_thr, f.face_ring)
 
         for k, th in enumerate(self.angles):
             overlap = ndimage.correlate(self.wall_f, self.body_k[k], mode="constant", cval=1.0) > 0.5
@@ -147,7 +179,7 @@ class FeatureExtractor:
             raw["wall"].append(wall)
 
             if g.kind == "vacuum":
-                feats = [level, flat, higher, wall, seal_bin]
+                feats = [level, flat, higher, wall, seal_bin, face_higher]
             else:
                 max_f = ndimage.maximum_filter(h_obs, footprint=self.finger_k[k], mode="constant", cval=self.ecfg.wall_height)
                 clear = max_f - (h - g.grasp_depth)

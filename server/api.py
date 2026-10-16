@@ -277,6 +277,7 @@ def feature_maps(sid: str, angle_idx: int = 0):
     if g.kind == "vacuum":
         seal = f.raw["seal"]
         maps["sızdırmazlık"] = np.where(seal >= fe.f.seal_bins[0], 0, np.where(seal >= fe.f.seal_bins[1], 1, 2))
+        maps["yüzey_kapalı"] = f.raw["face_higher"]
     else:
         ext = f.raw["extent"][k]
         maps["parmak_boşluğu"] = np.digitize(f.raw["clear"][k], fe.f.clear_bins)

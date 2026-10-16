@@ -105,8 +105,9 @@ Yükseklik haritasının tamamını tabloda tutmak imkânsızdır. Bunun yerine 
 | Genişlik* | 3 | $\theta$ yönünde ölçülen yüzey genişliği: sığar / sınırda / çok geniş |
 | Ortalı* | 2 | nokta, yüzeyin ortasında mı |
 | Sızdırmazlık** | 3 | vantuz altındaki aynı yüzey oranı |
+| Yüzeyi kapatan parça** | 2 | noktanın üzerinde durduğu düz yüzey (bölütlenmiş, parçanın görünen üst yüzü) kenarında daha yüksek bir yüzeye değiyor mu |
 
-\* parmaklı tutucu, \*\* vakumlu tutucu. Toplam tablo boyutu: parmaklıda $4 \cdot 3 \cdot 2 \cdot 3 \cdot 3 \cdot 3 \cdot 2 = 1296$, vakumluda $216$ hücre.
+\* parmaklı tutucu, \*\* vakumlu tutucu. Toplam tablo boyutu: parmaklıda $4 \cdot 3 \cdot 2 \cdot 3 \cdot 3 \cdot 3 \cdot 2 = 1296$, vakumluda $4 \cdot 3 \cdot 2 \cdot 3 \cdot 3 \cdot 2 = 432$ hücre.
 
 Özellik vektörü tek bir tamsayıya kodlanır, $\phi(s, a) \in \{0, \dots, N-1\}$, ve
 
@@ -178,9 +179,9 @@ _Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 toh
 | Yöntem | Başarı oranı | Çarpışma oranı | Başarısız kavrama | Boşaltılan parça | Getiri | Adım |
 |---|---|---|---|---|---|---|
 | Rastgele | %3.4 | %10.1 | %86.5 | %8.5 | -5.85 | 24.68 |
-| **Sezgisel** | %60.6 | %0.0 | %39.4 | %86.0 | 6.61 | 17.19 |
-| Q-learning (3 tohum) | %51.3 ± 1.8 | %0.1 ± 0.2 | %48.6 ± 1.9 | %77.8 ± 0.3 | 5.21 ± 0.04 | 19.14 ± 0.35 |
-| SARSA (3 tohum) | %48.8 ± 2.4 | %0.0 ± 0.0 | %51.2 ± 2.4 | %76.6 ± 1.4 | 4.97 ± 0.27 | 19.62 ± 0.42 |
+| Sezgisel | %60.6 | %0.0 | %39.4 | %86.0 | 6.61 | 17.19 |
+| **Q-learning** (3 tohum) | %64.3 ± 0.5 | %0.1 ± 0.1 | %35.6 ± 0.5 | %88.4 ± 0.3 | 6.96 ± 0.05 | 16.92 ± 0.09 |
+| SARSA (3 tohum) | %64.3 ± 0.3 | %0.0 ± 0.0 | %35.7 ± 0.3 | %88.4 ± 0.3 | 6.99 ± 0.04 | 16.92 ± 0.04 |
 
 ![Eğitim eğrileri](docs/img/learning_curves_vacuum.png)
 
