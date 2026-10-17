@@ -14,6 +14,8 @@ import { buildPlan, carriedPose, poseAt, type Plan, type Pose } from "./plan";
 import { HOME } from "./util";
 
 export const FINGER_H = 5.5;
+/** Bu sonuçlarda parça animasyon boyunca robot tarafından çizilir (kıpırdar ya da taşınır). */
+export const MOVING_CODES = ["ok", "slip", "covered"];
 const BODY_H = 3.4;
 const FLANGE_H = 1.6;
 export const GANTRY = { postX: 47, postZ: 38, railY: 64, bridgeY: 67 };
@@ -89,18 +91,17 @@ export default function Robot({ meta, parts, event, eventKey, speed, trayTarget,
       }
       const cp = carriedPose(plan, t);
       if (carried.current) {
-        carried.current.visible = !!cp || (plan.mode !== "none" && t < plan.attach);
-        if (cp) carried.current.position.set(cp[0], cp[1], cp[2]);
-        else if (plan.part) {
-          const h = (meta.grid.size - 1) / 2;
-          carried.current.position.set(plan.part.cx - h, plan.part.base + plan.part.thickness / 2, plan.part.cy - h);
+        carried.current.visible = !!cp;
+        if (cp) {
+          carried.current.position.set(cp.pos[0], cp.pos[1], cp.pos[2]);
+          carried.current.rotation.y = cp.yaw;
         }
       }
       if (t >= plan.total) {
         doneRef.current = true;
         poseRef.current = plan.keys[plan.keys.length - 1].pose;
-        // kayan parça yerinde görünmeye devam etsin (yeni durum gelene kadar)
-        if (carried.current) carried.current.visible = plan.mode === "slip";
+        // parçanın son pozu sahnedeki yerine (kutu ya da tepsi) birebir denk gelir
+        if (carried.current) carried.current.visible = false;
         ledColor.set(outcome ? OUTCOME[outcome].color : C.accent);
         onDoneRef.current?.();
       } else {
@@ -124,7 +125,7 @@ export default function Robot({ meta, parts, event, eventKey, speed, trayTarget,
     fingerB.current?.position.set(pose.open, FINGER_H / 2, 0);
   });
 
-  const carriedPart = event && event.part != null && (event.code === "ok" || event.code === "slip")
+  const carriedPart = event && event.part != null && MOVING_CODES.includes(event.code)
     ? parts.find((p) => p.id === event.part)
     : undefined;
   const bodyL = g.opening + 2 * g.finger_thickness + 2.4;
@@ -222,7 +223,7 @@ export default function Robot({ meta, parts, event, eventKey, speed, trayTarget,
 
       {/* taşınan parça (yalnızca animasyon sırasında görünür) */}
       <group ref={carried} visible={false}>
-        {carriedPart && <PartMesh part={carriedPart} local />}
+        {carriedPart && <PartMesh part={{ ...carriedPart, angle: 0 }} local />}
       </group>
     </group>
   );

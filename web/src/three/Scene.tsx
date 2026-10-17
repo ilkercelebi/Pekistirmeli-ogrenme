@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import type { GraspAction, GraspEvent, Meta, Outcome, Part } from "../api";
 import { C, heightColor, qColor } from "../theme";
-import Robot, { FINGER_H, GANTRY } from "./Robot";
+import Robot, { FINGER_H, GANTRY, MOVING_CODES } from "./Robot";
 import { PartMesh } from "./Parts";
 import { TRAY, toWorld } from "./util";
 
@@ -396,7 +396,7 @@ export default function RobotCell({
   orderRef.current = kept;
 
   const animating = !!event;
-  const hidden = animating && event && (event.code === "ok" || event.code === "slip") ? event.part : null;
+  const hidden = animating && event && MOVING_CODES.includes(event.code) ? event.part : null;
   const alive = parts.filter((p) => p.alive && p.id !== hidden);
 
   let trayTarget: [number, number, number, number] | undefined;
