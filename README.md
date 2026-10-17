@@ -14,7 +14,7 @@ Endüstriyel bin picking problemlerinde robot, kutuya rastgele yığılmış par
 Ödevde önerilen tam evrişimli DQN yerine **derin öğrenme kullanmayan, tablo tabanlı** bir yaklaşım geliştirildi. Her aday kavrama eylemi, yükseklik haritasından çıkarılan birkaç ayrık yerel özelliğe indirgendi (durum-eylem kümeleme). **Q-learning** ve **SARSA**, sinir ağı olmadan, birkaç yüz hücrelik bir Q tablosu öğrenir. Tablo değerleri görüntünün her pikseline yerleştirilerek ödevdeki "piksel bazlı Q-haritası" fikri derin öğrenme olmadan elde edildi. Yöntemler, kendi yazdığımız 2.5 boyutlu bir kutu simülasyonunda rastgele ve kural tabanlı (sezgisel) yöntemlerle karşılaştırıldı.
 
 <!-- OZET:BASLA (run_experiments.py doldurur) -->
-**Ana bulgu:** Parmaklı tutucu ile Q-learning, eğitimde görülmemiş test kutularında **%85.3** başarı oranına ulaştı ve en yüksek nokta sezgiselini (%69.9) 15.5 puan farkla geçti; çarpışma oranı %0.0, kutunun %99.9'i boşaltıldı. Rastgele seçimde başarı %3.3, çarpışma %32.4.
+**Ana bulgu:** Parmaklı tutucu ile SARSA, eğitimde görülmemiş test kutularında **%91.6** başarı oranına ulaştı ve en yüksek nokta sezgiselini (%69.9) 21.7 puan farkla geçti; çarpışma oranı %0.0, kutunun %99.9'i boşaltıldı. Rastgele seçimde başarı %3.3, çarpışma %32.4.
 <!-- OZET:BITIR -->
 
 ---
@@ -46,6 +46,8 @@ Literatürdeki yaygın çözüm, görüntüden doğrudan piksel bazlı Q-haritas
 ### 2.1 Durum (State)
 
 Ortamın gerçek durumu, kutunun $44 \times 44$ hücrelik (1 hücre = 1 cm) **yükseklik haritası** $H$ ile tutucu geometrisidir. Ajan haritayı derinlik kamerası gürültüsüyle ($\sigma = 0.05$ cm) görür. Parçaların kimliğini veya konumunu bilmez.
+
+Duruma robotun kendi **hafızası** da eklenir: bu bölümde başarısız kavrama denediği bölgeler. Başarılı bir alım kutuyu değiştirdiği için hafıza o anda silinir. Bu bilgi gizli bir ortam bilgisi değildir; robot kendi denemelerini bilir. Hafıza olmadan durum Markov değildir: kutu değişmediği için ajan aynı başarısız kavramayı tekrar tekrar seçebilir.
 
 ### 2.2 Eylem (Action)
 
@@ -103,17 +105,30 @@ Yükseklik haritasının tamamını tabloda tutmak imkânsızdır. Bunun yerine 
 | Duvar | 3 | tutucu ayak izi duvara değer / yakın / güvenli |
 | Parmak boşluğu* | 3 | parmakların ineceği bölge boş / sınırda / dolu |
 | Genişlik* | 3 | $\theta$ yönünde ölçülen yüzey genişliği: sığar / sınırda / çok geniş |
-| Ortalı* | 2 | nokta, yüzeyin ortasında mı |
+| Hizalama* | 2 | parmaklar parçayı kısa kenarından mı sıkıyor ($\theta$ yönündeki yüzey, dik yöndekinden kısa mı) |
+| Eksen ortası* | 3 | nokta parçanın uzun ekseni boyunca ortada / kaymış / uçta |
 | Sızdırmazlık** | 3 | vantuz altındaki aynı yüzey oranı |
-| Yüzeyi kapatan parça** | 2 | noktanın üzerinde durduğu düz yüzey (bölütlenmiş, parçanın görünen üst yüzü) kenarında daha yüksek bir yüzeye değiyor mu |
+| Yüzeyi kapatan parça | 2 | noktanın üzerinde durduğu düz yüzey (bölütlenmiş, parçanın görünen üst yüzü) kenarında daha yüksek bir yüzeye değiyor mu |
+| Önceden denendi | 2 | robot bu bölümde bu bölgede başarısız oldu mu (hafıza; başarılı alımda silinir) |
 
-\* parmaklı tutucu, \*\* vakumlu tutucu. Toplam tablo boyutu: parmaklıda $4 \cdot 3 \cdot 2 \cdot 3 \cdot 3 \cdot 3 \cdot 2 = 1296$, vakumluda $4 \cdot 3 \cdot 2 \cdot 3 \cdot 3 \cdot 2 = 432$ hücre.
+\* parmaklı tutucu, \*\* vakumlu tutucu, işaretsizler ikisi için. Toplam tablo boyutu: parmaklıda $4 \cdot 3 \cdot 2 \cdot 3 \cdot 3 \cdot 3 \cdot 2 \cdot 3 \cdot 2 \cdot 2 = 15552$, vakumluda $4 \cdot 3 \cdot 2 \cdot 3 \cdot 3 \cdot 2 \cdot 2 = 864$ hücre.
 
 Özellik vektörü tek bir tamsayıya kodlanır, $\phi(s, a) \in \{0, \dots, N-1\}$, ve
 
 $$Q(s, a) \approx Q_{\text{tablo}}[\phi(s, a)].$$
 
 Tüm özellikler evrişim/filtre işlemleriyle tüm pikseller için aynı anda hesaplanır. Bu sinir ağı değildir: filtreler sabittir ve tutucu geometrisinden türetilir, öğrenilen tek şey tablodur. $\max_\theta Q_{\text{tablo}}[\phi(s, (x, y, \theta))]$ değerleri görüntüye yerleştirilince **Q-haritası** elde edilir.
+
+### 4.1.1 Özellikler nasıl seçildi?
+
+İlk sürümde parmaklı tutucu 7 özellikle (1296 hücre) %85.3 başarıya ulaştı. Kalan hatalar incelendi ve ortamın gizli bilgisini bilen bir **kâhin politikayla** üst sınır hesaplandı (%97.5):
+
+1. **Teşhis:** Kalan hataların neredeyse tamamı *kayma*ydı. Kayma olasılığını iki şey belirliyor: parmakların parçanın kısa kenarından sıkması ve noktanın uzun eksende ortada olması. Eski `ortalı` özelliği ortalanmayı yanlış yönde (kapanma yönünde) ölçüyordu. → **Hizalama** ve **eksen ortası** eklendi.
+2. **Yan etki:** Kayma %16'dan %5'e indi ama başarı düştü (%56). Ajan artık ortadan ve kısa kenardan tutmaya çalışıyordu, fakat başka bir parçayla uzaktan örtülmüş parçaları ayırt edemiyor ve kutu değişmediği için aynı hatayı tekrarlıyordu. → Vakum için geliştirilen **yüzeyi kapatan parça** özelliği parmaklıya da açıldı, duruma **hafıza** eklendi.
+3. **Sonuç:** Üç özellik birlikte, 3 tohumda **%91.5 ± 0.6** başarıya ulaştı (önce %85.3; kâhin %97.5). Ablasyonda (tek tohum) özelliklerden herhangi biri çıkarılınca başarı 1–2 puan düşüyor: hizalama yok %89.7, yüzey yok %88.6, hafıza yok %89.6 (hepsi açık: %90.7). Kazanç tek bir özellikten değil, üçünün birlikte hata türlerini kapatmasından geliyor.
+4. **γ hakkında not:** Hafıza eklenmeden önce γ = 0 ile başarı %31'e düşüyordu. Hafızayla birlikte γ = 0 (%91.7) varsayılan γ = 0.5 (%90.7) kadar iyi; γ = 0.9 ise kararsız (%39). Önceki düşüş büyük ölçüde aynı hatanın tekrarından kaynaklanıyormuş. Bu problemde ardışık kararların etkisi zayıf: iyi bir kavrama seçmek çoğunlukla tek adımlık bir karar.
+
+Denenip **işe yaramayan** iki fikir de raporlanmıştır: vakum için uzun eksende ortalanma özelliği (etkisiz) ve hiç ziyaret edilmemiş tablo hücrelerini öğrenme hedefinde dışlamak (iyimser keşfi kestiği için başarıyı %85'ten %79'a düşürdü).
 
 ### 4.2 Öğrenme kuralları
 
@@ -145,7 +160,7 @@ $$Q[\phi(s,a)] \leftarrow Q[\phi(s,a)] + \alpha \left( r + \gamma \max_{a'} Q[\p
 | Eğitim | yöntem ve tutucu başına 3 tohum (0, 1, 2) × 3000 bölüm; ε eğitimin ilk yarısında 1.0 → 0.05 |
 | Ara değerlendirme | her 250 bölümde 20 kutuda açgözlü (ε = 0) politika |
 | Test | eğitimde görülmemiş 200 sabit tohumlu kutu, $\varepsilon = 0$; tüm yöntemler aynı kutularda |
-| Ablasyon | Q-learning, parmaklı (tohum 0): γ ∈ {0, 0.5, 0.9}, sabit α, tek bilek açısı; vakum (3 tohum): *yüzeyi kapatan parça* özelliği olmadan (216 hücrelik tablo) |
+| Ablasyon | Q-learning, parmaklı (tohum 0): γ ∈ {0, 0.5, 0.9}, sabit α, tek bilek açısı, hizalama / yüzey / hafıza özelliklerinin her biri çıkarılarak; vakum: *yüzeyi kapatan parça* olmadan (3 tohum) ve hafıza olmadan (tohum 0) |
 
 Bütün deney tek komutla tekrar üretilebilir: `python run_experiments.py --ablation` (bkz. [Kurulum](#kurulum-ve-çalıştırma)).
 
@@ -156,7 +171,7 @@ Bütün deney tek komutla tekrar üretilebilir: `python run_experiments.py --abl
 ## 6. Sonuçlar
 
 <!-- SONUCLAR:BASLA (run_experiments.py doldurur; elle düzenlemeyin) -->
-_Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 tohum × 3000 eğitim bölümü; test: eğitimde görülmemiş 200 kutu, keşif kapalı (ε = 0). ± değerleri tohumlar arası standart sapmadır._
+_Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-17). Ayar: 3 tohum × 3000 eğitim bölümü; test: eğitimde görülmemiş 200 kutu, keşif kapalı (ε = 0). ± değerleri tohumlar arası standart sapmadır._
 
 ### 6.1 Parmaklı tutucu
 
@@ -164,8 +179,8 @@ _Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 toh
 |---|---|---|---|---|---|---|
 | Rastgele | %3.3 | %32.4 | %64.3 | %8.4 | -10.24 | 24.68 |
 | Sezgisel | %69.9 | %0.0 | %30.1 | %98.0 | 8.56 | 14.89 |
-| **Q-learning** (3 tohum) | %85.3 ± 0.1 | %0.0 ± 0.0 | %14.7 ± 0.1 | %99.9 ± 0.1 | 9.39 ± 0.01 | 11.79 ± 0.03 |
-| SARSA (3 tohum) | %84.2 ± 0.4 | %0.0 ± 0.0 | %15.8 ± 0.4 | %99.9 ± 0.1 | 9.37 ± 0.00 | 11.93 ± 0.02 |
+| Q-learning (3 tohum) | %91.5 ± 0.6 | %0.0 ± 0.0 | %8.5 ± 0.6 | %99.9 ± 0.0 | 9.57 ± 0.02 | 10.91 ± 0.09 |
+| **SARSA** (3 tohum) | %91.6 ± 0.4 | %0.0 ± 0.0 | %8.4 ± 0.4 | %99.9 ± 0.0 | 9.57 ± 0.02 | 10.90 ± 0.07 |
 
 ![Eğitim eğrileri](docs/img/learning_curves_parallel_jaw.png)
 
@@ -182,8 +197,8 @@ _Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 toh
 | Rastgele | %3.4 | %10.1 | %86.5 | %8.5 | -5.85 | 24.68 |
 | Sezgisel | %60.6 | %0.0 | %39.4 | %86.0 | 6.61 | 17.19 |
 | Sezgisel + yüzey bilgisi | %61.8 | %0.0 | %38.2 | %88.9 | 6.99 | 17.19 |
-| **Q-learning** (3 tohum) | %64.3 ± 0.5 | %0.1 ± 0.1 | %35.6 ± 0.5 | %88.4 ± 0.3 | 6.96 ± 0.05 | 16.92 ± 0.09 |
-| SARSA (3 tohum) | %64.3 ± 0.3 | %0.0 ± 0.0 | %35.7 ± 0.3 | %88.4 ± 0.3 | 6.99 ± 0.04 | 16.92 ± 0.04 |
+| **Q-learning** (3 tohum) | %65.5 ± 0.2 | %0.1 ± 0.1 | %34.4 ± 0.2 | %90.2 ± 0.0 | 7.24 ± 0.03 | 16.75 ± 0.02 |
+| SARSA (3 tohum) | %65.1 ± 0.5 | %0.0 ± 0.0 | %34.9 ± 0.5 | %90.1 ± 0.1 | 7.22 ± 0.05 | 16.89 ± 0.17 |
 
 ![Eğitim eğrileri](docs/img/learning_curves_vacuum.png)
 
@@ -213,11 +228,14 @@ _Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 toh
 
 | Değişiklik | Başarı oranı | Çarpışma oranı | Boşaltılan parça | Getiri |
 |---|---|---|---|---|
-| γ = 0 (tek adımlık, bandit) | %31.4 | %0.0 | %47.5 | 0.95 |
-| γ = 0.5 (varsayılan) | %85.4 | %0.0 | %99.8 | 9.39 |
-| γ = 0.9 | %46.9 | %3.5 | %80.1 | 4.58 |
-| sabit α = 0.1 | %53.8 | %0.0 | %68.1 | 4.17 |
-| tek bilek açısı (θ öğrenilmiyor) | %47.4 | %0.1 | %71.8 | 4.25 |
+| γ = 0 (tek adımlık, bandit) | %91.7 | %0.0 | %100.0 | 9.59 |
+| γ = 0.5 (varsayılan) | %90.7 | %0.0 | %99.9 | 9.54 |
+| γ = 0.9 | %39.1 | %1.2 | %80.4 | 4.75 |
+| sabit α = 0.1 | %90.3 | %0.0 | %99.8 | 9.52 |
+| tek bilek açısı (θ öğrenilmiyor) | %62.7 | %1.4 | %88.7 | 6.57 |
+| hizalama + eksen ortası yok (eski `ortalı`) | %89.7 | %0.0 | %100.0 | 9.53 |
+| yüzeyi kapatan parça yok | %88.6 | %0.0 | %99.8 | 9.46 |
+| hafıza (önceden denendi) yok | %89.6 | %0.0 | %97.6 | 9.15 |
 
 ![Ablasyon](docs/img/ablation.png)
 
@@ -227,10 +245,10 @@ _Bu bölüm `run_experiments.py` tarafından üretildi (2026-10-16). Ayar: 3 toh
 |---|---|---|---|---|---|---|
 | Sezgisel | yok | — | %60.6 | %0.0 | %86.0 | 6.61 |
 | Sezgisel + yüzey bilgisi | var | — | %61.8 | %0.0 | %88.9 | 6.99 |
-| Q-learning (3 tohum) | yok | 216 hücre | %51.3 ± 1.8 | %0.1 ± 0.2 | %77.8 ± 0.3 | 5.21 ± 0.04 |
-| Q-learning (3 tohum) | var | 432 hücre | %64.3 ± 0.5 | %0.1 ± 0.1 | %88.4 ± 0.3 | 6.96 ± 0.05 |
+| Q-learning (3 tohum) | yok | 432 hücre | %57.8 ± 0.3 | %0.0 ± 0.0 | %87.4 ± 0.4 | 6.62 ± 0.05 |
+| Q-learning (3 tohum) | var | 864 hücre | %65.5 ± 0.2 | %0.1 ± 0.1 | %90.2 ± 0.0 | 7.24 ± 0.03 |
 
-Yüzey bilgisinin etkisi (başarı oranı, puan): sezgiselde **+1.2**, Q-learning'de **+13.0**. Öğrenmenin aynı bilgiye sahip kurala göre etkisi: yüzey bilgisi olmadan **-9.3** (Q-learning 216 hücre − sezgisel), yüzey bilgisiyle **+2.5** (Q-learning 432 hücre − sezgisel + yüzey bilgisi).
+Yüzey bilgisinin etkisi (başarı oranı, puan): sezgiselde **+1.2**, Q-learning'de **+7.7**. Öğrenmenin aynı bilgiye sahip kurala göre etkisi: yüzey bilgisi olmadan **-2.8** (Q-learning 432 hücre − sezgisel), yüzey bilgisiyle **+3.8** (Q-learning 864 hücre − sezgisel + yüzey bilgisi).
 
 ![Vakum ablasyonu](docs/img/ablation_vacuum.png)
 <!-- SONUCLAR:BITIR -->

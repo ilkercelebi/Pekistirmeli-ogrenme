@@ -48,7 +48,7 @@ def test_vacuum_ablation_compares_information_and_learning(tmp_path):
              "--out", str(out), "--readme", str(readme), "--img-dir", str(img)])
 
     # yalnız vakum satırı çalışır, ana deneyle aynı tohumlarla; parmaklı ablasyonu atlanır
-    assert sorted(p.name for p in (out / "ablation").iterdir()) == ["vacuum_noface_s0", "vacuum_noface_s1"]
+    assert sorted(p.name for p in (out / "ablation").iterdir()) == ["vacuum_noface_s0", "vacuum_noface_s1", "vacuum_nomem"]
     cfg = json.loads((out / "ablation" / "vacuum_noface_s0" / "config.json").read_text())
     assert cfg["features"]["face_feature"] is False
     agg = json.loads((out / "report" / "summary_vacuum.json").read_text())
@@ -57,5 +57,5 @@ def test_vacuum_ablation_compares_information_and_learning(tmp_path):
 
     text = readme.read_text()
     assert "| Sezgisel + yüzey bilgisi | var | — |" in text
-    assert "| Q-learning (2 tohum) | yok | 216 hücre |" in text and "| Q-learning (2 tohum) | var | 432 hücre |" in text
+    assert "| Q-learning (2 tohum) | yok | 432 hücre |" in text and "| Q-learning (2 tohum) | var | 864 hücre |" in text
     assert "Yüzey bilgisinin etkisi" in text

@@ -30,6 +30,7 @@ class EnvConfig:
     max_stack_height: float = 15.0
 
     max_steps_per_part: float = 2.5  # bölüm uzunluğu = ceil(parça sayısı * bu değer)
+    memory_radius: float = 2.0      # başarısız kavrama hafızasının yarıçapı (cm)
     obs_noise: float = 0.05          # derinlik kamerası gürültüsü (cm, std)
 
     # Ödev metnindeki ödül fonksiyonu
@@ -82,6 +83,12 @@ class FeatureConfig:
     neighbor_radius: int = 3
     neighbor_thr: float = 1.5              # yakında daha yüksek bir şey var mı
     face_ring: int = 2                     # vakum: düz yüzeyin çevresinde daha yüksek yüzey aranan genişlik
+    axis_reach: int = 16                   # dik doğrultuda yüzey ölçümünün menzili (uzun parçalar 14 cm)
+    axis_center_bins: tuple = (0.25, 0.55)  # eksen_ortası: orta / kaymış / uçta
+    jaw_face_feature: bool = True          # parmaklı: `yüzey_kapalı` (vakumdaki yüzey bölütleme özelliği)
+    memory_feature: bool = True            # `denendi`: bu bölgede bu bölüm başarısız olundu mu (robotun hafızası)
+    vacuum_center_feature: bool = False    # vakum: `eksen_ortası` (uzun eksende ortalanma)
+    alignment_features: bool = True        # parmaklı: `hizalama` + `eksen_ortası` (False → eski `ortalı`, 1296 hücre)
     face_feature: bool = True              # vakum: `yüzey_kapalı` tabloya girsin mi (False → 216 hücre, ablasyon)
     wall_margin: float = 2.0               # duvara "yakın" sayılan mesafe
     clear_bins: tuple = (0.0, 1.0)         # parmak bölgesi boşluğu: boş / sınırda / dolu
@@ -103,6 +110,9 @@ class AgentConfig:
     eps_end: float = 0.05
     eps_decay_episodes: int = 1500
     q_init: float = 0.0
+    # Açgözlü seçimde ve Q-learning hedefinde hiç ziyaret edilmemiş tablo hücreleri (Q = başlangıç değeri)
+    # "en iyi" sayılmasın. Keşif sırasında iyimser başlangıç değeri yine keşfi teşvik eder.
+    avoid_unvisited: bool = False    # denendi: eğitimde iyimser keşfi kesip başarıyı düşürdü (%85 → %79)
 
 
 def _from_dict(cls, data: dict):
@@ -131,6 +141,12 @@ class ExperimentConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> "ExperimentConfig":
+        feats = dict(data.get("features") or {})
+        # Bu ayar eklenmeden önce kaydedilmiş eğitimler eski özellik setiyle eğitildi.
+        feats.setdefault("alignment_features", False)
+        feats.setdefault("jaw_face_feature", False)
+        feats.setdefault("memory_feature", False)
+        data = {**data, "features": feats}
         return cls(
             env=_from_dict(EnvConfig, data.get("env")),
             gripper=_from_dict(GripperConfig, data.get("gripper")),

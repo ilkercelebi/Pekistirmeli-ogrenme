@@ -127,7 +127,7 @@ class Session:
     done: bool = False
 
     def refresh(self):
-        self.feats = self.fe.compute(self.obs)
+        self.feats = self.fe.compute(self.obs, self.env.fail_map)
 
     def state(self) -> dict:
         env = self.env

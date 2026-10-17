@@ -65,7 +65,11 @@ ABLATIONS = [
     ("gamma0.9", "parallel_jaw", "γ = 0.9", {"agent.gamma": 0.9}, False),
     ("alpha_const", "parallel_jaw", "sabit α = 0.1", {"agent.alpha_mode": "constant", "agent.alpha": 0.1}, False),
     ("angles1", "parallel_jaw", "tek bilek açısı (θ öğrenilmiyor)", {"gripper.n_angles": 1}, False),
-    ("vacuum_noface", "vacuum", "yüzey_kapalı yok (216 hücre)", {"features.face_feature": False}, True),
+    ("noalign", "parallel_jaw", "hizalama + eksen ortası yok (eski `ortalı`)", {"features.alignment_features": False}, False),
+    ("noface", "parallel_jaw", "yüzeyi kapatan parça yok", {"features.jaw_face_feature": False}, False),
+    ("nomem", "parallel_jaw", "hafıza (önceden denendi) yok", {"features.memory_feature": False}, False),
+    ("vacuum_noface", "vacuum", "yüzey_kapalı yok", {"features.face_feature": False}, True),
+    ("vacuum_nomem", "vacuum", "hafıza (önceden denendi) yok", {"features.memory_feature": False}, False),
 ]
 
 
@@ -375,7 +379,7 @@ def vacuum_comparison(agg: dict, abl_rows: list) -> list[tuple[str, str, str, st
     """Vakum: kazanç öğrenmeden mi, yalnızca ek bilgiden mi? (yöntem, kısa ad, yüzey bilgisi, tablo, sonuç).
 
     Sezgisel ve sezgisel + yüzey bilgisi aynı bilgiye sahip elle yazılmış kurallardır; Q-learning'in
-    yüzey_kapalı olmadan (216 hücre) ve onunla (432 hücre) eğitilmiş tabloları bunların öğrenen karşılıklarıdır.
+    yüzey_kapalı olmadan ve onunla eğitilmiş tabloları bunların öğrenen karşılıklarıdır.
     """
     rows = [(LABEL[m], LABEL[m].replace(" + ", "\n+ "), info, "—", agg[m])
             for m, info in (("heuristic", "yok"), ("heuristic_face", "var")) if m in agg]
@@ -396,10 +400,11 @@ def vacuum_verdict(agg: dict, abl_rows: list) -> str:
     h, hf = agg["heuristic"]["success_rate"], agg["heuristic_face"]["success_rate"]
     q0, q1 = noface["success_rate"], agg["q_learning"]["success_rate"]
     pt = lambda v: f"{v * 100:+.1f}"  # noqa: E731
+    c0, c1 = n_states("vacuum", {"features.face_feature": False}), n_states("vacuum", {})
     return (f"Yüzey bilgisinin etkisi (başarı oranı, puan): sezgiselde **{pt(hf - h)}**, Q-learning'de **{pt(q1 - q0)}**. "
             f"Öğrenmenin aynı bilgiye sahip kurala göre etkisi: yüzey bilgisi olmadan **{pt(q0 - h)}** "
-            f"(Q-learning 216 hücre − sezgisel), yüzey bilgisiyle **{pt(q1 - hf)}** "
-            f"(Q-learning 432 hücre − sezgisel + yüzey bilgisi).")
+            f"(Q-learning {c0} hücre − sezgisel), yüzey bilgisiyle **{pt(q1 - hf)}** "
+            f"(Q-learning {c1} hücre − sezgisel + yüzey bilgisi).")
 
 
 def ablation_table(rows: list[tuple[str, dict]]) -> list[str]:

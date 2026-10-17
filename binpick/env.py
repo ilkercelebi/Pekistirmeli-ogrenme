@@ -87,6 +87,8 @@ class BinPickingEnv:
         self.steps = 0
         self.max_steps = 0
         self.n_initial = 0
+        # Robotun bu bölümdeki başarısız kavrama noktaları (kendi hafızası; kutu değişince silinir).
+        self.fail_map = np.zeros(self.shape, dtype=bool)
 
     # ------------------------------------------------------------ kurulum
 
@@ -110,6 +112,7 @@ class BinPickingEnv:
                 self._rebuild()
         self.n_initial = len(self.parts)
         self.steps = 0
+        self.fail_map = np.zeros(self.shape, dtype=bool)
         self.max_steps = max(1, math.ceil(self.n_initial * self.cfg.max_steps_per_part))
         return self.observe()
 
@@ -197,10 +200,10 @@ class BinPickingEnv:
             self.parts[pid].alive = False
             self._rebuild()
             reward = self.cfg.reward_success
-        elif outcome == COLLISION:
-            reward = self.cfg.reward_collision
+            self.fail_map[:] = False          # kutu değişti: eski başarısızlıklar artık geçerli olmayabilir
         else:
-            reward = self.cfg.reward_fail
+            reward = self.cfg.reward_collision if outcome == COLLISION else self.cfg.reward_fail
+            self.fail_map |= geometry.disk_mask(self.shape, center, self.cfg.memory_radius)
 
         self.steps += 1
         terminated = self.n_alive == 0

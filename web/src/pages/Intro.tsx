@@ -98,7 +98,7 @@ export default function Intro() {
       <div className="grid g4">
         <Stat label="Kutudaki parça" value="6–14" sub="rastgele yığın" />
         <Stat label="Aday eylem / adım" value="6.400" sub="40 × 40 nokta × 4 açı" />
-        <Stat label="Q tablosu" value="1.296" sub="hücre (parmaklı tutucu)" color={C.accent} />
+        <Stat label="Q tablosu" value="15.552" sub="hücre (parmaklı tutucu)" color={C.accent} />
         <Stat label="Sinir ağı" value="0" sub="parametre öğrenilmiyor" color={C.success} />
       </div>
 

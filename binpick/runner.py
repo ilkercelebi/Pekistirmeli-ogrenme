@@ -12,7 +12,7 @@ def run_episode(env, agent, fe, *, learn: bool, seed=None, on_step=None) -> dict
     (GIF ve arayüz bunu kullanır). `feats`, eylemin seçildiği durumun özellikleridir.
     """
     obs = env.reset(seed=seed)
-    feats = fe.compute(obs)
+    feats = fe.compute(obs, env.fail_map)
     action, sid = agent.act(feats, explore=learn)
 
     stats = {"return": 0.0, "steps": 0, SUCCESS: 0, COLLISION: 0, FAIL: 0, "parts": env.n_initial}
@@ -25,7 +25,7 @@ def run_episode(env, agent, fe, *, learn: bool, seed=None, on_step=None) -> dict
 
         next_feats = next_action = next_sid = None
         if not terminated:
-            next_feats = fe.compute(obs)
+            next_feats = fe.compute(obs, env.fail_map)
             next_action, next_sid = agent.act(next_feats, explore=learn)
         if learn:
             agent.learn(sid, reward, next_feats, next_sid, terminated)

@@ -136,9 +136,16 @@ class TabularAgent(BaseAgent):
             j = int(self.rng.integers(len(idx)))
         else:
             q = self.Q[ids]
+            if not explore and self.cfg.avoid_unvisited:
+                q = self._known(q, ids)
             best = np.flatnonzero(q >= q.max() - 1e-9)
             j = int(best[self.rng.integers(len(best))])
         return _to_action(idx[j], feats.valid.shape), int(ids[j])
+
+    def _known(self, q, ids):
+        """Ziyaret edilmiş hücre varsa ziyaret edilmemişleri dışarıda bırakır."""
+        seen = self.N[ids] > 0
+        return np.where(seen, q, -np.inf) if seen.any() else q
 
     def _alpha(self, sid: int) -> float:
         c = self.cfg
@@ -182,8 +189,11 @@ class QLearningAgent(TabularAgent):
     """Off-policy: hedef = r + γ · max_a' Q(s', a')."""
 
     def _bootstrap(self, next_feats, next_sid):
-        ids = next_feats.state_ids[next_feats.valid]
-        return float(self.Q[np.unique(ids)].max())
+        ids = np.unique(next_feats.state_ids[next_feats.valid])
+        q = self.Q[ids]
+        if self.cfg.avoid_unvisited:
+            q = self._known(q, ids)
+        return float(q.max())
 
 
 class SarsaAgent(TabularAgent):

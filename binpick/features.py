@@ -38,6 +38,9 @@ BIN_LABELS = {
     "genişlik": [("sığar", "good"), ("sınırda", "mid"), ("çok geniş", "bad")],
     "ortalı": [("kenarda", "mid"), ("ortada", "good")],
     "sızdırmazlık": [("iyi", "good"), ("orta", "mid"), ("kötü", "bad")],
+    "hizalama": [("kısa kenardan", "good"), ("uzun kenardan", "bad")],
+    "denendi": [("hayır", "good"), ("evet", "bad")],
+    "eksen_ortası": [("ortada", "good"), ("kaymış", "mid"), ("uçta", "bad")],
     "yüzey_kapalı": [("yok", "good"), ("var", "bad")],
 }
 
@@ -49,6 +52,9 @@ FEATURE_INFO = {
     "parmak_boşluğu": "Parmakların ineceği bölgede engel var mı?",
     "genişlik": "θ yönünde ölçülen yüzey genişliği, tutucu açıklığına sığıyor mu?",
     "ortalı": "Nokta, yüzeyin θ yönündeki ortasına yakın mı?",
+    "denendi": "Robot bu bölümde bu bölgede daha önce başarısız oldu mu? (kendi hafızası; başarılı alımda silinir)",
+    "hizalama": "Parmaklar parçanın kısa kenarından mı sıkıyor (θ yönündeki yüzey, dik yöndekinden kısa mı)?",
+    "eksen_ortası": "Nokta, parçanın uzun ekseni boyunca ortada mı, yoksa bir ucuna mı yakın?",
     "sızdırmazlık": "Vantuz altındaki alanın ne kadarı aynı düz yüzey?",
     "yüzey_kapalı": "Noktanın üzerinde durduğu düz yüzey (parçanın görünen üst yüzü) kenarında daha yüksek bir "
     "yüzeye değiyor mu? Değiyorsa başka bir parça bu parçanın üstüne binmiş olabilir.",
@@ -71,6 +77,21 @@ def _shift(a: np.ndarray, dr: int, dc: int, fill: float) -> np.ndarray:
     if r0 < r1 and c0 < c1:
         out[r0:r1, c0:c1] = a[r0 + dr : r1 + dr, c0 + dc : c1 + dc]
     return out
+
+
+def _surface_runs(h: np.ndarray, theta: float, max_d: int, tol: float):
+    """Her pikselden θ ve -θ yönünde, yükseklik `tol` içinde kaldıkça kaç hücre gidilebildiği."""
+    runs = []
+    for sign in (1, -1):
+        run = np.zeros(h.shape, dtype=int)
+        alive = np.ones(h.shape, dtype=bool)
+        for d in range(1, max_d + 1):
+            dr = int(round(sign * d * math.sin(theta)))
+            dc = int(round(sign * d * math.cos(theta)))
+            alive &= np.abs(_shift(h, dr, dc, -1e9) - h) < tol
+            run += alive
+        runs.append(run)
+    return runs
 
 
 def face_touches_higher(h: np.ndarray, interior: np.ndarray, tol: float, thr: float, ring: int) -> np.ndarray:
@@ -115,10 +136,21 @@ class FeatureExtractor:
             if self.f.face_feature:
                 self.names.append("yüzey_kapalı")
                 self.dims.append(2)
+            if self.f.vacuum_center_feature:
+                self.names.append("eksen_ortası")
+                self.dims.append(3)
             self.cup_offsets = geometry.cup_offsets(g)
         else:
-            self.names = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "parmak_boşluğu", "genişlik", "ortalı"]
-            self.dims = [4, 3, 2, 3, 3, 3, 2]
+            base = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "parmak_boşluğu", "genişlik"]
+            if self.f.alignment_features:
+                self.names, self.dims = base + ["hizalama", "eksen_ortası"], [4, 3, 2, 3, 3, 3, 2, 3]
+            else:
+                self.names, self.dims = base + ["ortalı"], [4, 3, 2, 3, 3, 3, 2]
+            if self.f.jaw_face_feature:
+                self.names, self.dims = self.names + ["yüzey_kapalı"], self.dims + [2]
+        if self.f.memory_feature:
+            self.names = self.names + ["denendi"]
+            self.dims = self.dims + [2]
 
         reach = (geometry.jaw_body_length(g) / 2 if g.kind != "vacuum" else g.cup_radius) + self.f.wall_margin + 1
         self.body_k, self.near_k, self.finger_k = [], [], []
@@ -146,7 +178,8 @@ class FeatureExtractor:
 
     # ----------------------------------------------------------------
 
-    def compute(self, obs: np.ndarray) -> FeatureMaps:
+    def compute(self, obs: np.ndarray, memory: np.ndarray | None = None) -> FeatureMaps:
+        """`memory`: robotun bu bölümde başarısız olduğu noktalar (BinPickingEnv.fail_map); yoksa boş."""
         f, g = self.f, self.g
         h = np.where(self.interior, obs, 0.0).astype(float)
 
@@ -166,6 +199,9 @@ class FeatureExtractor:
         h_obs = np.where(self.wall, self.ecfg.wall_height, h)
 
         seal_bin = None
+        jaw_face = None
+        if g.kind != "vacuum" and f.jaw_face_feature:
+            raw["face_higher"] = jaw_face = face_touches_higher(h, self.interior, g.surface_tol, f.neighbor_thr, f.face_ring)
         if g.kind == "vacuum":
             same = np.zeros_like(h)
             for dr, dc in self.cup_offsets:
@@ -174,6 +210,19 @@ class FeatureExtractor:
             raw["seal"] = seal
             seal_bin = np.where(seal >= f.seal_bins[0], 0, np.where(seal >= f.seal_bins[1], 1, 2))
             raw["face_higher"] = face_higher = face_touches_higher(h, self.interior, g.surface_tol, f.neighbor_thr, f.face_ring)
+            vac_center = None
+            if f.vacuum_center_feature:
+                # Vantuzda kayma, noktanın parçanın uzun ekseninde ortadan uzaklığıyla artar. Uzun eksen,
+                # yüzeyin en uzun olduğu yön olarak dört doğrultudan seçilir; dengesizlik o yönde ölçülür.
+                best_ext = np.zeros(h.shape)
+                vac_off = np.zeros(h.shape)
+                for th in geometry.angle_values(4):
+                    p, n = _surface_runs(h, th, f.axis_reach, g.surface_tol)
+                    ext = 1 + p + n
+                    longer = ext > best_ext
+                    best_ext = np.where(longer, ext, best_ext)
+                    vac_off = np.where(longer, np.abs(p - n) / (p + n + 1.0), vac_off)
+                vac_center = np.digitize(vac_off, f.axis_center_bins)
 
         for k, th in enumerate(self.angles):
             overlap = ndimage.correlate(self.wall_f, self.body_k[k], mode="constant", cval=1.0) > 0.5
@@ -183,28 +232,36 @@ class FeatureExtractor:
 
             if g.kind == "vacuum":
                 feats = [level, flat, higher, wall, seal_bin] + ([face_higher] if f.face_feature else [])
+                if f.vacuum_center_feature:
+                    feats.append(vac_center)
             else:
                 max_f = ndimage.maximum_filter(h_obs, footprint=self.finger_k[k], mode="constant", cval=self.ecfg.wall_height)
                 clear = max_f - (h - g.grasp_depth)
                 clear_bin = np.digitize(clear, f.clear_bins)
                 raw["clear"].append(clear)
 
-                runs = []
-                for sign in (1, -1):
-                    run = np.zeros(h.shape, dtype=int)
-                    alive = np.ones(h.shape, dtype=bool)
-                    for d in range(1, int(math.ceil(g.opening)) + 3):
-                        dr = int(round(sign * d * math.sin(th)))
-                        dc = int(round(sign * d * math.cos(th)))
-                        alive &= np.abs(_shift(h, dr, dc, -1e9) - h) < g.surface_tol
-                        run += alive
-                    runs.append(run)
+                runs = _surface_runs(h, th, int(math.ceil(g.opening)) + 2, g.surface_tol)
                 extent = 1 + runs[0] + runs[1]
                 raw["extent"].append(extent)
                 width = np.where(extent <= g.opening - 2, 0, np.where(extent <= g.opening, 1, 2))
-                centered = (np.abs(runs[0] - runs[1]) <= 1).astype(int)
-                feats = [level, flat, higher, wall, clear_bin, width, centered]
+                if f.alignment_features:
+                    # Kayma olasılığı iki şeye bağlı: parmakların parçayı kısa kenarından sıkması ve noktanın
+                    # parçanın uzun ekseninde ortada olması. İkisi de kapanma yönüne dik doğrultudaki yüzey
+                    # uzunluğundan ölçülür.
+                    perp = _surface_runs(h, th + math.pi / 2, f.axis_reach, g.surface_tol)
+                    extent_perp = 1 + perp[0] + perp[1]
+                    align = (extent > extent_perp).astype(int)                        # 0: kısa kenardan
+                    off = np.abs(perp[0] - perp[1]) / (perp[0] + perp[1] + 1.0)
+                    axis_center = np.digitize(off, f.axis_center_bins)                # 0 orta, 1 kaymış, 2 uçta
+                    feats = [level, flat, higher, wall, clear_bin, width, align, axis_center]
+                else:
+                    centered = (np.abs(runs[0] - runs[1]) <= 1).astype(int)
+                    feats = [level, flat, higher, wall, clear_bin, width, centered]
+                if f.jaw_face_feature:
+                    feats.append(jaw_face)
 
+            if f.memory_feature:
+                feats = feats + [np.zeros(h.shape, dtype=int) if memory is None else memory.astype(int)]
             ids[k] = np.ravel_multi_index([np.clip(a, 0, d - 1) for a, d in zip(feats, self.dims)], self.dims)
 
         valid = np.broadcast_to(self.candidates, shape).copy()

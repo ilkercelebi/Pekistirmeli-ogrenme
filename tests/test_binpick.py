@@ -102,10 +102,10 @@ def test_vacuum_face_feature_sees_cover_beyond_neighbor_radius():
 def test_vacuum_face_feature_flag_sets_table_size():
     cfg = ExperimentConfig()
     cfg.gripper.kind = "vacuum"
-    assert build(cfg)[1].n_states == 432
+    assert build(cfg)[1].n_states == 864           # + hafıza (denendi)
     cfg.features.face_feature = False
     _, fe = build(cfg)
-    assert fe.n_states == 216 and "yüzey_kapalı" not in fe.names
+    assert fe.n_states == 432 and "yüzey_kapalı" not in fe.names
     # sezgisel + yüzey bilgisi için ham harita yine hesaplanır
     assert fe.compute(build(cfg, seed=0)[0].reset(seed=1)).raw["face_higher"] is not None
 
@@ -170,3 +170,40 @@ def test_heuristic_baseline_is_meaningful(kind):
     rows = [run_episode(env, agent, fe, learn=False, seed=2_000_000 + i) for i in range(6)]
     assert np.mean([r["success_rate"] for r in rows]) > 0.4
     assert np.mean([r["collision_rate"] for r in rows]) == 0.0
+
+
+def test_jaw_alignment_and_axis_center_features():
+    """Kaymayı belirleyen iki etken gözlemden ölçülür: kısa kenardan sıkma ve uzun eksende ortalanma."""
+    _, env, fe = make_env()
+    assert fe.names[-4:] == ["hizalama", "eksen_ortası", "yüzey_kapalı", "denendi"]
+    feats = fe.compute(env.reset(parts=[box(21, 21, length=12, width=4, angle=0.0)]))
+    k0, k90 = angle_idx(env, 0), angle_idx(env, 90)
+
+    def bins(k, r, c):
+        return fe.describe(int(feats.state_ids[k, r, c]))
+
+    # parça x yönünde uzun: 90° kısa kenardan sıkar, 0° uzun kenardan
+    assert bins(k90, 21, 21)["hizalama"] == 0 and bins(k0, 21, 21)["hizalama"] == 1
+    # merkez "ortada", uç "uçta"
+    assert bins(k90, 21, 21)["eksen_ortası"] == 0 and bins(k90, 21, 16)["eksen_ortası"] == 2
+
+
+def test_old_runs_without_alignment_flag_still_load():
+    cfg = ExperimentConfig.from_dict({"gripper": {"kind": "parallel_jaw"}, "features": {}})
+    assert cfg.features.alignment_features is False
+    assert build(cfg)[1].n_states == 1296
+
+
+def test_memory_marks_failures_and_clears_on_success():
+    cfg, env, _ = make_env("vacuum")
+    cfg.features.memory_feature = True
+    env, fe = build(cfg, seed=0)
+    env.reset(parts=[box(21, 21, length=10, width=6), box(10, 10, length=6, width=6)])
+    assert "denendi" in fe.names and not env.fail_map.any()
+    env.step(Action(0, 30, 30))                         # boş nokta: başarısız
+    assert env.fail_map[30, 30] and not env.fail_map[21, 21]
+    feats = fe.compute(env.observe(), env.fail_map)
+    assert fe.describe(int(feats.state_ids[0, 30, 30]))["denendi"] == 1
+    assert fe.describe(int(feats.state_ids[0, 21, 21]))["denendi"] == 0
+    env.step(Action(0, 21, 21))                         # başarılı alım hafızayı siler
+    assert not env.fail_map.any()
