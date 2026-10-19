@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from .config import AgentConfig, ExperimentConfig
-from .env import Action
+from .env import STOP_ACTION, Action
 from .features import FeatureMaps
 
 
@@ -25,12 +25,19 @@ def _to_action(flat_index: int, shape) -> Action:
 class BaseAgent:
     name = "base"
     learns = False
+    allow_stop = False       # ortam "dur" eylemine izin veriyor mu (run_episode ayarlar)
 
     def __init__(self, seed=None):
         self.rng = np.random.default_rng(seed)
 
     def set_episode(self, episode: int) -> None:
         pass
+
+    def begin_episode(self) -> None:
+        """Yeni kutu: bölüm içi sayaçları sıfırlar."""
+
+    def observe(self, info: dict) -> None:
+        """Her adımın sonucunu görür (öğrenmeden bağımsız; ör. üst üste başarısızlık sayacı)."""
 
     def act(self, feats: FeatureMaps, explore: bool = False):
         raise NotImplementedError
@@ -63,11 +70,35 @@ class HeuristicAgent(BaseAgent):
 
     name = "heuristic"
     use_face = False
+    tabu_radius = 2.0        # başarısız olunan noktanın bu yarıçapı bir daha denenmez (hafızanın karşılığı)
+
+    def begin_episode(self) -> None:
+        self.tabu: list[tuple[int, int]] = []
+
+    def observe(self, info: dict) -> None:
+        if info["outcome"] == "success":
+            self.tabu = []          # kutu değişti
+        elif info.get("row", -1) >= 0:
+            self.tabu.append((info["row"], info["col"]))
+
+    def _not_tabu(self, shape) -> np.ndarray:
+        ok = np.ones(shape, dtype=bool)
+        if getattr(self, "tabu", None):
+            yy, xx = np.mgrid[0 : shape[0], 0 : shape[1]]
+            for r, c in self.tabu:
+                ok &= (yy - r) ** 2 + (xx - c) ** 2 > self.tabu_radius ** 2
+        return ok
 
     def act(self, feats, explore=False):
+        free = self._not_tabu(feats.valid.shape[1:])
+        if self.allow_stop and not (free & (feats.raw["level"] > 0) & feats.valid[0]).any():
+            return STOP_ACTION, -1          # denenmemiş parça noktası kalmadı
         safe = np.stack([w > 0 for w in feats.raw["wall"]]) & feats.valid   # (A, H, W)
         if not safe.any():
             safe = feats.valid
+        safe = safe & free
+        if not safe.any():
+            safe = feats.valid & free if (feats.valid & free).any() else feats.valid
         h = np.where(safe.any(axis=0), feats.raw["height"], -np.inf)
         seal = feats.raw.get("seal")
         if seal is not None:
@@ -138,9 +169,17 @@ class TabularAgent(BaseAgent):
             q = self.Q[ids]
             if not explore and self.cfg.avoid_unvisited:
                 q = self._known(q, ids)
+            # Durmanın değeri tam olarak bilinir: ödül 0 ve bölüm biter. En iyi kavramanın beklenen
+            # değeri bunun altına düştüğünde (her deneme zarar bekleniyorsa) ajan durur.
+            if self.allow_stop and q.max() < self.cfg.stop_margin:
+                return STOP_ACTION, -1
             best = np.flatnonzero(q >= q.max() - 1e-9)
             j = int(best[self.rng.integers(len(best))])
         return _to_action(idx[j], feats.valid.shape), int(ids[j])
+
+    def _next_value(self, q_max: float) -> float:
+        """Bir sonraki durumun değeri: dur eylemi açıksa en az 0 (durmak her zaman mümkün)."""
+        return max(q_max, 0.0) if self.allow_stop else q_max
 
     def _known(self, q, ids):
         """Ziyaret edilmiş hücre varsa ziyaret edilmemişleri dışarıda bırakır."""
@@ -157,6 +196,8 @@ class TabularAgent(BaseAgent):
         raise NotImplementedError
 
     def learn(self, sid, reward, next_feats, next_sid, terminated):
+        if sid < 0:          # "dur" eylemi tabloda değildir; değeri sabit 0
+            return
         target = reward
         if not terminated and next_feats is not None:
             target += self.cfg.gamma * self._bootstrap(next_feats, next_sid)
@@ -193,14 +234,56 @@ class QLearningAgent(TabularAgent):
         q = self.Q[ids]
         if self.cfg.avoid_unvisited:
             q = self._known(q, ids)
-        return float(q.max())
+        return self._next_value(float(q.max()))
 
 
 class SarsaAgent(TabularAgent):
     """On-policy: hedef = r + γ · Q(s', a'), a' gerçekten seçilen sonraki eylem."""
 
     def _bootstrap(self, next_feats, next_sid):
-        return float(self.Q[next_sid])
+        return 0.0 if next_sid < 0 else float(self.Q[next_sid])
+
+
+class DoubleQAgent(TabularAgent):
+    """Double Q-learning (van Hasselt, 2010): iki bağımsız tablo, Q_A ve Q_B.
+
+    Her güncellemede tablolardan biri rastgele seçilir; sonraki durumdaki en iyi eylem o tabloyla
+    seçilir ama değeri öbür tablodan okunur. Böylece tek tablodaki max işleminin yarattığı
+    aşırı iyimser tahmin (overestimation bias) azalır. Eylem seçimi iki tablonun ortalamasıyla yapılır
+    (`self.Q`, arayüz ve analiz de bunu kullanır).
+    """
+
+    def __init__(self, n_states: int, cfg: AgentConfig | None = None, seed=None):
+        super().__init__(n_states, cfg, seed)
+        self.QA = self.Q.copy()
+        self.QB = self.Q.copy()
+
+    def learn(self, sid, reward, next_feats, next_sid, terminated):
+        if sid < 0:
+            return
+        upd, other = (self.QA, self.QB) if self.rng.random() < 0.5 else (self.QB, self.QA)
+        target = reward
+        if not terminated and next_feats is not None:
+            ids = np.unique(next_feats.state_ids[next_feats.valid])
+            a_star = ids[int(np.argmax(upd[ids]))]
+            value = float(other[a_star])
+            if self.allow_stop and upd[a_star] < 0.0:      # seçen tablo durmayı tercih ediyor
+                value = 0.0
+            target += self.cfg.gamma * value
+        self.N[sid] += 1
+        delta = target - upd[sid]
+        upd[sid] += self._alpha(sid) * delta
+        self.Q[sid] = 0.5 * (self.QA[sid] + self.QB[sid])
+        self.td_errors.append(float(delta))
+
+    def save(self, path: Path) -> None:
+        np.savez(path, Q=self.Q, N=self.N, QA=self.QA, QB=self.QB)
+
+    def load_arrays(self, path: Path) -> None:
+        super().load_arrays(path)
+        data = np.load(path)
+        self.QA = data["QA"] if "QA" in data else self.Q.copy()
+        self.QB = data["QB"] if "QB" in data else self.Q.copy()
 
 
 def make_agent(name: str, n_states: int, cfg: AgentConfig | None = None, seed=None) -> BaseAgent:
@@ -216,6 +299,8 @@ def make_agent(name: str, n_states: int, cfg: AgentConfig | None = None, seed=No
         return QLearningAgent(n_states, cfg, seed)
     if name == "sarsa":
         return SarsaAgent(n_states, cfg, seed)
+    if name == "double_q":
+        return DoubleQAgent(n_states, cfg, seed)
     raise ValueError(f"Bilinmeyen ajan: {name}")
 
 

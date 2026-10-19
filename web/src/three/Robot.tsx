@@ -3,7 +3,7 @@
 // Animasyon, olayın (GraspEvent) sonucuna göre kurulan bir anahtar kare planıdır:
 // hedefin üstüne git → in → kavra → kaldır → (başarılıysa) tepsiye bırak → eve dön.
 // Tüm pozlar zamanın saf fonksiyonudur; böylece hız değiştirilse de animasyon tutarlı kalır.
-import { RoundedBox } from "@react-three/drei";
+import { Html, RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -20,6 +20,11 @@ const BODY_H = 3.4;
 const FLANGE_H = 1.6;
 export const GANTRY = { postX: 47, postZ: 38, railY: 64, bridgeY: 67 };
 const COLUMN_LEN = 34;
+
+function labelPos(meta: Meta, ev: GraspEvent): [number, number, number] {
+  const h = (meta.grid.size - 1) / 2;
+  return [ev.action.col - h, Math.max(ev.anim.stop_z, ev.outcome === "collision" ? meta.grid.wall_height : 0) + 13, ev.action.row - h];
+}
 
 export function toolHeight(meta: Meta) {
   return meta.gripper.kind === "vacuum" ? 9.2 : FINGER_H + BODY_H + FLANGE_H;
@@ -58,6 +63,7 @@ export default function Robot({ meta, parts, event, eventKey, speed, trayTarget,
   const led = useRef<THREE.MeshStandardMaterial>(null);
   const flash = useRef<THREE.PointLight>(null);
   const carried = useRef<THREE.Group>(null);
+  const label = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!event) return;
@@ -89,6 +95,7 @@ export default function Robot({ meta, parts, event, eventKey, speed, trayTarget,
         flash.current.intensity = on ? 900 * (0.6 + 0.4 * Math.sin(t * 40)) : 0;
         flash.current.position.set(pose.x, pose.y + 1, pose.z);
       }
+      if (label.current) label.current.style.opacity = t >= plan.outcomeAt ? "1" : "0";
       const cp = carriedPose(plan, t);
       if (carried.current) {
         carried.current.visible = !!cp;
@@ -102,6 +109,7 @@ export default function Robot({ meta, parts, event, eventKey, speed, trayTarget,
         poseRef.current = plan.keys[plan.keys.length - 1].pose;
         // parçanın son pozu sahnedeki yerine (kutu ya da tepsi) birebir denk gelir
         if (carried.current) carried.current.visible = false;
+        if (label.current) label.current.style.opacity = "0";
         ledColor.set(outcome ? OUTCOME[outcome].color : C.accent);
         onDoneRef.current?.();
       } else {
@@ -220,6 +228,16 @@ export default function Robot({ meta, parts, event, eventKey, speed, trayTarget,
       </group>
 
       <pointLight ref={flash} color={C.collision} intensity={0} distance={40} decay={2} />
+
+      {/* sonuç etiketi: kavrama noktasının üstünde, sonuç belli olduğu anda belirir */}
+      {event && (
+        <Html key={eventKey} position={labelPos(meta, event)} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+          <div ref={label} className="grasp-label" style={{ color: OUTCOME[event.outcome].color, borderColor: `${OUTCOME[event.outcome].color}88` }}>
+            <b>{OUTCOME[event.outcome].label} {OUTCOME[event.outcome].reward}</b>
+            <span>{event.reason}</span>
+          </div>
+        </Html>
+      )}
 
       {/* taşınan parça (yalnızca animasyon sırasında görünür) */}
       <group ref={carried} visible={false}>

@@ -38,9 +38,10 @@ BIN_LABELS = {
     "genişlik": [("sığar", "good"), ("sınırda", "mid"), ("çok geniş", "bad")],
     "ortalı": [("kenarda", "mid"), ("ortada", "good")],
     "sızdırmazlık": [("iyi", "good"), ("orta", "mid"), ("kötü", "bad")],
-    "hizalama": [("kısa kenardan", "good"), ("uzun kenardan", "bad")],
+    "hizalama": [("kısa kenardan", "good"), ("kısmen", "mid"), ("kare / uzun kenardan", "bad")],
     "denendi": [("hayır", "good"), ("evet", "bad")],
-    "eksen_ortası": [("ortada", "good"), ("kaymış", "mid"), ("uçta", "bad")],
+    "seri_başarısız": [("0", "good"), ("1", "mid"), ("2", "mid"), ("3+", "bad")],
+    "eksen_ortası": [("tam ortada", "good"), ("ortada", "good"), ("kaymış", "mid"), ("uca yakın", "bad"), ("uçta", "bad")],
     "yüzey_kapalı": [("yok", "good"), ("var", "bad")],
 }
 
@@ -52,6 +53,7 @@ FEATURE_INFO = {
     "parmak_boşluğu": "Parmakların ineceği bölgede engel var mı?",
     "genişlik": "θ yönünde ölçülen yüzey genişliği, tutucu açıklığına sığıyor mu?",
     "ortalı": "Nokta, yüzeyin θ yönündeki ortasına yakın mı?",
+    "seri_başarısız": "Robot bu kutuda üst üste kaç kez başarısız oldu? (kutunun tamamı hakkında: alınabilir parça kalmadığının işareti)",
     "denendi": "Robot bu bölümde bu bölgede daha önce başarısız oldu mu? (kendi hafızası; başarılı alımda silinir)",
     "hizalama": "Parmaklar parçanın kısa kenarından mı sıkıyor (θ yönündeki yüzey, dik yöndekinden kısa mı)?",
     "eksen_ortası": "Nokta, parçanın uzun ekseni boyunca ortada mı, yoksa bir ucuna mı yakın?",
@@ -143,7 +145,8 @@ class FeatureExtractor:
         else:
             base = ["yükseklik", "düzlük", "yakında_yüksek", "duvar", "parmak_boşluğu", "genişlik"]
             if self.f.alignment_features:
-                self.names, self.dims = base + ["hizalama", "eksen_ortası"], [4, 3, 2, 3, 3, 3, 2, 3]
+                self.names = base + ["hizalama", "eksen_ortası"]
+                self.dims = [4, 3, 2, 3, 3, 3, len(self.f.align_bins) + 1, len(self.f.axis_center_bins) + 1]
             else:
                 self.names, self.dims = base + ["ortalı"], [4, 3, 2, 3, 3, 3, 2]
             if self.f.jaw_face_feature:
@@ -151,6 +154,10 @@ class FeatureExtractor:
         if self.f.memory_feature:
             self.names = self.names + ["denendi"]
             self.dims = self.dims + [2]
+        self.use_streak = g.kind in self.f.streak_grippers
+        if self.use_streak:
+            self.names = self.names + ["seri_başarısız"]
+            self.dims = self.dims + [len(self.f.streak_bins) + 1]
 
         reach = (geometry.jaw_body_length(g) / 2 if g.kind != "vacuum" else g.cup_radius) + self.f.wall_margin + 1
         self.body_k, self.near_k, self.finger_k = [], [], []
@@ -178,7 +185,7 @@ class FeatureExtractor:
 
     # ----------------------------------------------------------------
 
-    def compute(self, obs: np.ndarray, memory: np.ndarray | None = None) -> FeatureMaps:
+    def compute(self, obs: np.ndarray, memory: np.ndarray | None = None, streak: int = 0) -> FeatureMaps:
         """`memory`: robotun bu bölümde başarısız olduğu noktalar (BinPickingEnv.fail_map); yoksa boş."""
         f, g = self.f, self.g
         h = np.where(self.interior, obs, 0.0).astype(float)
@@ -250,9 +257,10 @@ class FeatureExtractor:
                     # uzunluğundan ölçülür.
                     perp = _surface_runs(h, th + math.pi / 2, f.axis_reach, g.surface_tol)
                     extent_perp = 1 + perp[0] + perp[1]
-                    align = (extent > extent_perp).astype(int)                        # 0: kısa kenardan
+                    # kapanma yönündeki yüzey / dik yöndeki yüzey: küçükse parça kısa kenarından sıkılıyor
+                    align = np.digitize(extent / np.maximum(extent_perp, 1), f.align_bins, right=True)
                     off = np.abs(perp[0] - perp[1]) / (perp[0] + perp[1] + 1.0)
-                    axis_center = np.digitize(off, f.axis_center_bins)                # 0 orta, 1 kaymış, 2 uçta
+                    axis_center = np.digitize(off, f.axis_center_bins)                # 0 tam ortada … uçta
                     feats = [level, flat, higher, wall, clear_bin, width, align, axis_center]
                 else:
                     centered = (np.abs(runs[0] - runs[1]) <= 1).astype(int)
@@ -262,6 +270,9 @@ class FeatureExtractor:
 
             if f.memory_feature:
                 feats = feats + [np.zeros(h.shape, dtype=int) if memory is None else memory.astype(int)]
+            if self.use_streak:
+                # bütün aday eylemler için ortak: robot bu kutuda üst üste kaç kez başarısız oldu
+                feats = feats + [np.full(h.shape, int(np.digitize(streak, f.streak_bins)), dtype=int)]
             ids[k] = np.ravel_multi_index([np.clip(a, 0, d - 1) for a, d in zip(feats, self.dims)], self.dims)
 
         valid = np.broadcast_to(self.candidates, shape).copy()

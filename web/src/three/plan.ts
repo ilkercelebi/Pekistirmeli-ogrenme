@@ -215,6 +215,8 @@ export function buildPlan(meta: Meta, ev: GraspEvent, parts: Part[], start: Pose
     plan.landing = { pos: [slot[0], slot[1], slot[2]], yaw: -thEnd + plan.local.yaw };
   } else {
     if (mode === "slip") plan.slip = t + 0.32;
+    // başarısız kavramada (geniş parça, engel, üstü kapalı, boş nokta) tutucu bir an bekler: ne olduğu görülsün
+    if (ev.outcome === "fail" && mode !== "slip") push(0.55, {});
     push(0.85, { y: hoverY });
     push(0.3, { open: open0 });
     push(0.9, { ...HOME, th: 0 });

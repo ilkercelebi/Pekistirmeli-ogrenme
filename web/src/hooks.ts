@@ -85,7 +85,8 @@ export function useSimulation(gripper: GripperKind, method: string, seed: number
     setBusy(true);
     try {
       const res = await api.step(session.id, action);
-      if (!animate) {
+      // "dur" bir kavrama değildir: robot animasyonu yok, sonuç hemen uygulanır
+      if (!animate || res.event.outcome === "stop") {
         setSession(res.state);
         setParts(res.state.parts);
         setLastEvent(res.event);

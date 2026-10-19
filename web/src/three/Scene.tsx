@@ -243,7 +243,7 @@ function DepthCamera({ meta, pulse }: { meta: Meta; pulse: number }) {
 function SignalTower({ signal }: { signal: "idle" | "busy" | Outcome }) {
   const lights: [string, boolean][] = [
     [C.collision, signal === "collision"],
-    [C.fail, signal === "fail" || signal === "busy"],
+    [C.fail, signal === "fail" || signal === "busy" || signal === "stop"],
     [C.success, signal === "success" || signal === "idle"],
   ];
   return (
@@ -376,6 +376,8 @@ export interface RobotCellProps {
   signal?: "idle" | "busy" | Outcome;
   children?: ReactNode;
   view?: "iso" | "top" | "close";
+  /** Kameranın odaklanacağı dünya noktası (x, z); verilirse "close" görünüm bu noktaya bakar. */
+  focus?: [number, number] | null;
 }
 
 const VIEWS = {
@@ -386,7 +388,7 @@ const VIEWS = {
 
 export default function RobotCell({
   meta, parts, depth, event = null, eventKey = 0, onEventDone, speed = 1, overlay, preview, height = 600,
-  signal = "idle", children, view = "iso",
+  signal = "idle", children, view = "iso", focus = null,
 }: RobotCellProps) {
   // Tepsideki parçaların sırası: kutudan alınan parçalar sırayla tepsiye dizilir.
   const orderRef = useRef<number[]>([]);
@@ -412,15 +414,18 @@ export default function RobotCell({
     }
   }
 
-  const v = VIEWS[view];
+  const v = view === "close" && focus
+    ? { pos: [focus[0] + 34, 64, focus[1] + 58] as [number, number, number], target: [focus[0] * 0.6, 16, focus[1] * 0.6] as [number, number, number], fov: 34 }
+    : VIEWS[view];
+  const camKey = `${view}-${focus ? focus.join(",") : ""}`;
   const scanKey = useMemo(() => Math.random(), [parts]); // her yeni durumda kamera taraması
 
   return (
     <div className="viewport" style={{ height }}>
       <div className="vp-loading">3D sahne hazırlanıyor…</div>
       <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, toneMappingExposure: 1.3 }}>
-        <PerspectiveCamera key={view} makeDefault position={v.pos} fov={v.fov} near={1} far={2000} />
-        <OrbitControls key={`c${view}`} target={v.target} enablePan={false} minDistance={45} maxDistance={260}
+        <PerspectiveCamera key={camKey} makeDefault position={v.pos} fov={v.fov} near={1} far={2000} />
+        <OrbitControls key={`c${camKey}`} target={v.target} enablePan={false} minDistance={45} maxDistance={260}
           maxPolarAngle={1.42} enableDamping dampingFactor={0.08} />
         <color attach="background" args={["#090c10"]} />
         <fog attach="fog" args={["#090c10", 220, 520]} />

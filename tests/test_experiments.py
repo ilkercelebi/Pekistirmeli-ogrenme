@@ -1,6 +1,7 @@
 """run_experiments.py uçtan uca: küçük bir deney eğitilir, değerlendirilir, rapor ve README bloğu üretilir."""
 
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -24,13 +25,14 @@ def test_pipeline_end_to_end(tmp_path):
     for s in (0, 1):
         assert rx.is_complete(out / f"q_learning_parallel_jaw_s{s}", 8)
     agg = json.loads((out / "report" / "summary_parallel_jaw.json").read_text())
-    assert set(agg) == {"random", "heuristic", "q_learning"}
+    assert set(agg) == {"random", "heuristic", "oracle", "q_learning"}
     assert agg["q_learning"]["n_seeds"] == 2 and agg["q_learning"]["success_rate_seed_std"] is not None
     for name in ("learning_curves_parallel_jaw.png", "greedy_parallel_jaw.png", "bars_parallel_jaw.png", "qtable_parallel_jaw.png"):
         assert (img / name).exists(), name
 
     text = readme.read_text()
-    assert "| Q-learning (2 tohum) |" in text and "otomatik dolar" not in text
+    assert re.search(r"\| (\*\*)?Q-learning(\*\*)? \(2 tohum\) \|", text) and "otomatik dolar" not in text
+    assert "Kâhin (üst sınır)" in text
     assert "learning_curves_parallel_jaw.png" in text
 
     # ikinci çalıştırma: eğitimler atlanır, README blokları yine tek kopya kalır
@@ -48,7 +50,7 @@ def test_vacuum_ablation_compares_information_and_learning(tmp_path):
              "--out", str(out), "--readme", str(readme), "--img-dir", str(img)])
 
     # yalnız vakum satırı çalışır, ana deneyle aynı tohumlarla; parmaklı ablasyonu atlanır
-    assert sorted(p.name for p in (out / "ablation").iterdir()) == ["vacuum_noface_s0", "vacuum_noface_s1", "vacuum_nomem"]
+    assert sorted(p.name for p in (out / "ablation").iterdir()) == ["vacuum_noface_s0", "vacuum_noface_s1", "vacuum_nomem", "vacuum_nostop", "vacuum_nostreak_s0", "vacuum_nostreak_s1"]
     cfg = json.loads((out / "ablation" / "vacuum_noface_s0" / "config.json").read_text())
     assert cfg["features"]["face_feature"] is False
     agg = json.loads((out / "report" / "summary_vacuum.json").read_text())
@@ -57,5 +59,5 @@ def test_vacuum_ablation_compares_information_and_learning(tmp_path):
 
     text = readme.read_text()
     assert "| Sezgisel + yüzey bilgisi | var | — |" in text
-    assert "| Q-learning (2 tohum) | yok | 432 hücre |" in text and "| Q-learning (2 tohum) | var | 864 hücre |" in text
+    assert "| Q-learning (2 tohum) | yok | 1728 hücre |" in text and "| Q-learning (2 tohum) | var | 3456 hücre |" in text
     assert "Yüzey bilgisinin etkisi" in text

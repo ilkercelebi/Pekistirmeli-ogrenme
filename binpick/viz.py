@@ -14,8 +14,8 @@ from matplotlib.patches import Circle, Polygon  # noqa: E402
 from . import geometry  # noqa: E402
 from .env import COLLISION, SUCCESS  # noqa: E402
 
-OUTCOME_COLORS = {SUCCESS: "#2ca02c", COLLISION: "#d62728", "fail": "#ff9f1c", None: "#ffffff"}
-OUTCOME_TR = {SUCCESS: "BAŞARILI (+1)", COLLISION: "ÇARPIŞMA (-1)", "fail": "BAŞARISIZ (-0.2)"}
+OUTCOME_COLORS = {SUCCESS: "#2ca02c", COLLISION: "#d62728", "fail": "#ff9f1c", "stop": "#58a6ff", None: "#ffffff"}
+OUTCOME_TR = {SUCCESS: "BAŞARILI (+1)", COLLISION: "ÇARPIŞMA (-1)", "fail": "BAŞARISIZ (-0.2)", "stop": "DURDU (0)"}
 
 
 def draw_gripper(ax, action, env, color="#ffffff"):
@@ -52,7 +52,9 @@ def render(env, *, agent=None, feats=None, action=None, info=None, title=None, s
         fig.colorbar(im2, ax=ax2, fraction=0.046, pad=0.03, label="max_θ Q")
         ax2.set_title("Q-haritası (tablo değerleri)")
 
-    if action is not None:
+    if action is not None and getattr(action, "stop", False) and info:
+        fig.suptitle(f"{OUTCOME_TR['stop']} · {info['reason']}", color=OUTCOME_COLORS["stop"], fontsize=11, fontweight="bold")
+    elif action is not None:
         color = OUTCOME_COLORS.get(info["outcome"] if info else None, "#ffffff")
         for a in axes:
             draw_gripper(a, action, env, color)

@@ -37,6 +37,10 @@ class EnvConfig:
     reward_success: float = 1.0
     reward_collision: float = -1.0
     reward_fail: float = -0.2
+    # "Dur" eylemi: robot kutuda alınabilir parça kalmadığına karar verip bölümü bitirir (ör. kutuyu
+    # sallatmak ya da operatöre bildirmek için). Ödülü 0'dır; boşa denemelerin cezasından kaçınır.
+    allow_stop: bool = True
+    reward_stop: float = 0.0
 
     @property
     def size(self) -> int:
@@ -84,8 +88,13 @@ class FeatureConfig:
     neighbor_thr: float = 1.5              # yakında daha yüksek bir şey var mı
     face_ring: int = 2                     # vakum: düz yüzeyin çevresinde daha yüksek yüzey aranan genişlik
     axis_reach: int = 16                   # dik doğrultuda yüzey ölçümünün menzili (uzun parçalar 14 cm)
-    axis_center_bins: tuple = (0.25, 0.55)  # eksen_ortası: orta / kaymış / uçta
+    axis_center_bins: tuple = (0.1, 0.25, 0.45, 0.7)  # eksen_ortası: tam ortada / ortada / kaymış / uca yakın / uçta
+    align_bins: tuple = (0.75, 1.0)        # hizalama: yüzey oranı ≤0.75 kısa kenardan, ≤1 kısmen, >1 uzun kenardan
     jaw_face_feature: bool = True          # parmaklı: `yüzey_kapalı` (vakumdaki yüzey bölütleme özelliği)
+    # `seri_başarısız`: üst üste başarısız deneme sayısı (0, 1, 2, 3+). Vakumda durmayı kararlı öğrenmeyi sağlar;
+    # parmaklıda tabloyu 4 kat büyütüp biraz zarar verdiği için yalnız vakumda açık.
+    streak_grippers: tuple = ("vacuum",)
+    streak_bins: tuple = (1, 2, 3)
     memory_feature: bool = True            # `denendi`: bu bölgede bu bölüm başarısız olundu mu (robotun hafızası)
     vacuum_center_feature: bool = False    # vakum: `eksen_ortası` (uzun eksende ortalanma)
     alignment_features: bool = True        # parmaklı: `hizalama` + `eksen_ortası` (False → eski `ortalı`, 1296 hücre)
@@ -112,6 +121,7 @@ class AgentConfig:
     q_init: float = 0.0
     # Açgözlü seçimde ve Q-learning hedefinde hiç ziyaret edilmemiş tablo hücreleri (Q = başlangıç değeri)
     # "en iyi" sayılmasın. Keşif sırasında iyimser başlangıç değeri yine keşfi teşvik eder.
+    stop_margin: float = 0.0         # en iyi kavramanın Q değeri bunun altındaysa dur (dur eylemi açıksa)
     avoid_unvisited: bool = False    # denendi: eğitimde iyimser keşfi kesip başarıyı düşürdü (%85 → %79)
 
 
@@ -144,8 +154,14 @@ class ExperimentConfig:
         feats = dict(data.get("features") or {})
         # Bu ayar eklenmeden önce kaydedilmiş eğitimler eski özellik setiyle eğitildi.
         feats.setdefault("alignment_features", False)
+        feats.setdefault("align_bins", (1.0,))
+        feats.setdefault("axis_center_bins", (0.25, 0.55))
+        env_cfg = dict(data.get("env") or {})
+        env_cfg.setdefault("allow_stop", False)
+        data = {**data, "env": env_cfg}
         feats.setdefault("jaw_face_feature", False)
         feats.setdefault("memory_feature", False)
+        feats.setdefault("streak_grippers", ())
         data = {**data, "features": feats}
         return cls(
             env=_from_dict(EnvConfig, data.get("env")),

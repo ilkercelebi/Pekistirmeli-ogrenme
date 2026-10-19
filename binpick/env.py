@@ -30,6 +30,7 @@ from .config import EnvConfig, GripperConfig
 SUCCESS = "success"
 COLLISION = "collision"
 FAIL = "fail"
+STOP = "stop"
 
 REASONS = {
     "ok": "parça başarıyla kaldırıldı",
@@ -40,6 +41,7 @@ REASONS = {
     "covered": "parçanın üstünde başka parça var",
     "slip": "parça tutucudan kayıp düştü",
     "seal": "vakum sızdırıyor (parça kenarı)",
+    "stop": "robot durdu: alınabilir parça kalmadığına karar verdi",
 }
 
 
@@ -48,6 +50,10 @@ class Action:
     angle_idx: int
     row: int
     col: int
+    stop: bool = False      # "dur" eylemi: kutuda alınabilir parça kalmadığına karar verip bölümü bitirir
+
+
+STOP_ACTION = Action(-1, -1, -1, stop=True)
 
 
 @dataclass
@@ -89,6 +95,7 @@ class BinPickingEnv:
         self.n_initial = 0
         # Robotun bu bölümdeki başarısız kavrama noktaları (kendi hafızası; kutu değişince silinir).
         self.fail_map = np.zeros(self.shape, dtype=bool)
+        self.fail_streak = 0     # üst üste başarısız kavrama sayısı (robotun kendi hafızası)
 
     # ------------------------------------------------------------ kurulum
 
@@ -113,6 +120,7 @@ class BinPickingEnv:
         self.n_initial = len(self.parts)
         self.steps = 0
         self.fail_map = np.zeros(self.shape, dtype=bool)
+        self.fail_streak = 0
         self.max_steps = max(1, math.ceil(self.n_initial * self.cfg.max_steps_per_part))
         return self.observe()
 
@@ -186,6 +194,13 @@ class BinPickingEnv:
     # ------------------------------------------------------------ adım
 
     def step(self, action: Action):
+        if action.stop:
+            if not self.cfg.allow_stop:
+                raise ValueError("Bu ortamda 'dur' eylemi kapalı (EnvConfig.allow_stop).")
+            self.steps += 1
+            info = {"outcome": STOP, "reason": REASONS["stop"], "code": "stop", "anim": {"top_z": 0.0, "stop_z": 0.0},
+                    "part": None, "theta_deg": 0.0, "parts_left": self.n_alive, "step": self.steps}
+            return self.observe(), self.cfg.reward_stop, True, False, info
         theta = float(self.angles[action.angle_idx])
         center = (action.row, action.col)
         anim = self._contact_heights(center, theta)
@@ -201,9 +216,11 @@ class BinPickingEnv:
             self._rebuild()
             reward = self.cfg.reward_success
             self.fail_map[:] = False          # kutu değişti: eski başarısızlıklar artık geçerli olmayabilir
+            self.fail_streak = 0
         else:
             reward = self.cfg.reward_collision if outcome == COLLISION else self.cfg.reward_fail
             self.fail_map |= geometry.disk_mask(self.shape, center, self.cfg.memory_radius)
+            self.fail_streak += 1
 
         self.steps += 1
         terminated = self.n_alive == 0
@@ -215,6 +232,8 @@ class BinPickingEnv:
             "anim": anim,
             "part": pid,
             "theta_deg": math.degrees(theta),
+            "row": action.row,
+            "col": action.col,
             "parts_left": self.n_alive,
             "step": self.steps,
         }

@@ -66,7 +66,7 @@ export default function Demo() {
 
   const history = s?.history ?? [];
   const totals = useMemo(() => {
-    const t = { reward: 0, success: 0, collision: 0, fail: 0 };
+    const t = { reward: 0, success: 0, collision: 0, fail: 0, stop: 0 };
     for (const h of history) {
       t.reward += h.reward;
       t[h.outcome] += 1;
@@ -77,7 +77,7 @@ export default function Demo() {
   const learns = !!s?.learns;
   const last = sim.lastEvent;
   const footprints: Footprint[] = [];
-  if (last && !sim.event) footprints.push({ action: last.action, color: OUTCOME[last.outcome].color });
+  if (last && !sim.event && !last.action.stop) footprints.push({ action: last.action, color: OUTCOME[last.outcome].color });
   if (hoverAction && manual) footprints.push({ action: hoverAction, color: pv?.wall_hit ? C.collision : C.accent, dashed: true });
 
   const overlayData = overlay === "q" && s?.qmap ? { kind: "q" as const, values: s.qmap.q }
@@ -210,7 +210,7 @@ export default function Demo() {
           )}
         </div>
         <Card kicker={lookingAt ? "Fare altındaki eylem" : last ? `Son karar · adım ${last.step}` : "Ajanın gözünden"}
-          title={lookingAt ? `(${hover?.col}, ${hover?.row}) · θ = ${meta.angles_deg[angle]}°` : last ? `(${last.action.col}, ${last.action.row}) · θ = ${Math.round(last.action.theta_deg ?? 0)}°` : "Henüz karar yok"}>
+          title={lookingAt ? `(${hover?.col}, ${hover?.row}) · θ = ${meta.angles_deg[angle]}°` : last ? (last.action.stop ? "Robot durdu" : `(${last.action.col}, ${last.action.row}) · θ = ${Math.round(last.action.theta_deg ?? 0)}°`) : "Henüz karar yok"}>
           {(lookingAt?.features ?? last?.features) && <FeatureChips features={(lookingAt?.features ?? last?.features)!} />}
           {lookingAt && (
             <p style={{ marginTop: 8 }}>
@@ -240,8 +240,8 @@ export default function Demo() {
                   <tr key={h.step}>
                     <td className="mono">{h.step}</td>
                     <td className="muted">{h.chosen_by === "user" ? "sen" : "ajan"}</td>
-                    <td className="mono">({h.action.col}, {h.action.row})</td>
-                    <td className="mono">{Math.round(h.action.theta_deg ?? 0)}°</td>
+                    <td className="mono">{h.action.stop ? "—" : `(${h.action.col}, ${h.action.row})`}</td>
+                    <td className="mono">{h.action.stop ? "—" : `${Math.round(h.action.theta_deg ?? 0)}°`}</td>
                     <td style={{ color: OUTCOME[h.outcome].color, fontWeight: 700 }}>{OUTCOME[h.outcome].label}</td>
                     <td className="muted">{h.reason}</td>
                     <td className="num">{h.q == null ? "—" : fmt(h.q, 3)}</td>

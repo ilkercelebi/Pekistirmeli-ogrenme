@@ -9,6 +9,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from binpick.env import STOP_ACTION  # noqa: E402
+from binpick.oracle import run_oracle_episode  # noqa: E402
 from binpick import (  # noqa: E402
     COLLISION,
     FAIL,
@@ -18,6 +20,7 @@ from binpick import (  # noqa: E402
     Part,
     build,
     make_agent,
+    RandomAgent,
     run_episode,
 )
 
@@ -102,10 +105,10 @@ def test_vacuum_face_feature_sees_cover_beyond_neighbor_radius():
 def test_vacuum_face_feature_flag_sets_table_size():
     cfg = ExperimentConfig()
     cfg.gripper.kind = "vacuum"
-    assert build(cfg)[1].n_states == 864           # + hafıza (denendi)
+    assert build(cfg)[1].n_states == 3456          # + hafıza (denendi) + seri başarısızlık
     cfg.features.face_feature = False
     _, fe = build(cfg)
-    assert fe.n_states == 432 and "yüzey_kapalı" not in fe.names
+    assert fe.n_states == 1728 and "yüzey_kapalı" not in fe.names
     # sezgisel + yüzey bilgisi için ham harita yine hesaplanır
     assert fe.compute(build(cfg, seed=0)[0].reset(seed=1)).raw["face_higher"] is not None
 
@@ -182,10 +185,11 @@ def test_jaw_alignment_and_axis_center_features():
     def bins(k, r, c):
         return fe.describe(int(feats.state_ids[k, r, c]))
 
-    # parça x yönünde uzun: 90° kısa kenardan sıkar, 0° uzun kenardan
-    assert bins(k90, 21, 21)["hizalama"] == 0 and bins(k0, 21, 21)["hizalama"] == 1
-    # merkez "ortada", uç "uçta"
-    assert bins(k90, 21, 21)["eksen_ortası"] == 0 and bins(k90, 21, 16)["eksen_ortası"] == 2
+    # parça x yönünde uzun: 90° kısa kenardan sıkar (0), 0° uzun kenardan (2)
+    assert bins(k90, 21, 21)["hizalama"] == 0 and bins(k0, 21, 21)["hizalama"] == 2
+    # merkez "tam ortada", uca doğru kova büyür
+    assert bins(k90, 21, 21)["eksen_ortası"] == 0
+    assert bins(k90, 21, 18)["eksen_ortası"] < bins(k90, 21, 16)["eksen_ortası"] >= 3
 
 
 def test_old_runs_without_alignment_flag_still_load():
@@ -207,3 +211,87 @@ def test_memory_marks_failures_and_clears_on_success():
     assert fe.describe(int(feats.state_ids[0, 21, 21]))["denendi"] == 0
     env.step(Action(0, 21, 21))                         # başarılı alım hafızayı siler
     assert not env.fail_map.any()
+
+
+def test_stop_action_ends_episode_without_counting_as_attempt():
+    _, env, fe = make_env()
+    env.reset(parts=[box(21, 21)])
+    _, r, term, trunc, info = env.step(STOP_ACTION)
+    assert term and not trunc and r == 0.0 and info["outcome"] == "stop" and env.n_alive == 1
+
+    class StopAgent(RandomAgent):
+        def act(self, feats, explore=False):
+            return STOP_ACTION, -1
+
+    stats = run_episode(env, StopAgent(0), fe, learn=False, seed=1)
+    assert stats["stop"] == 1 and stats["attempts"] == 0 and stats["success_rate"] == 0.0
+
+
+def test_tabular_agent_stops_only_when_every_grasp_looks_bad():
+    cfg, env, fe = make_env()
+    agent = make_agent("q_learning", fe.n_states, cfg.agent, seed=0)
+    agent.allow_stop = True
+    feats = fe.compute(env.reset(parts=[box(21, 21)]), env.fail_map)
+    assert not agent.act(feats)[0].stop                  # bilinmeyen (Q = 0) eylemler varken durmaz
+    agent.Q[:] = -0.3
+    assert agent.act(feats)[0].stop                      # her kavrama zarar bekliyorsa durur
+    agent.allow_stop = False
+    assert not agent.act(feats)[0].stop
+
+
+def test_heuristic_never_retries_a_failed_spot_and_stops_when_none_left():
+    _, env, fe = make_env()
+    agent = make_agent("heuristic", 0, seed=0)
+    agent.allow_stop = True
+    agent.begin_episode()
+    feats = fe.compute(env.reset(parts=[box(21, 21, length=4, width=3)]), env.fail_map)
+    first, _ = agent.act(feats)
+    assert not first.stop
+    agent.observe({"outcome": "fail", "row": first.row, "col": first.col})
+    second, _ = agent.act(feats)
+    assert second.stop or (second.row - first.row) ** 2 + (second.col - first.col) ** 2 > agent.tabu_radius ** 2
+    # parçanın bütün noktaları denenmişse durur
+    for r in range(17, 26):
+        for c in range(17, 26):
+            agent.observe({"outcome": "fail", "row": r, "col": c})
+    assert agent.act(feats)[0].stop
+    agent.observe({"outcome": "success", "row": 21, "col": 21})   # kutu değişti: hafıza silinir
+    assert not agent.act(feats)[0].stop
+
+def test_double_q_learns_saves_and_loads(tmp_path):
+    cfg, env, fe = make_env(no_slip=False)
+    agent = make_agent("double_q", fe.n_states, cfg.agent, seed=0)
+    for ep in range(3):
+        agent.set_episode(ep)
+        run_episode(env, agent, fe, learn=True, seed=ep)
+    assert agent.N.sum() > 0 and not np.allclose(agent.QA, agent.QB)
+    assert np.allclose(agent.Q, 0.5 * (agent.QA + agent.QB))
+    agent.save(tmp_path / "a.npz")
+    other = make_agent("double_q", fe.n_states, cfg.agent, seed=1)
+    other.load_arrays(tmp_path / "a.npz")
+    assert np.allclose(other.QA, agent.QA) and np.allclose(other.QB, agent.QB)
+
+
+@pytest.mark.parametrize("kind", ["parallel_jaw", "vacuum"])
+def test_oracle_is_an_upper_bound(kind):
+    cfg = ExperimentConfig()                  # gerçek deney kurulumu (kamera gürültüsü açık)
+    cfg.gripper.kind = kind
+    env, _ = build(cfg, seed=0)
+    rows = [run_oracle_episode(env, seed=2_000_000 + i) for i in range(6)]
+    assert np.mean([r["success_rate"] for r in rows]) > 0.85
+    assert all(r["collision"] == 0 for r in rows)
+
+
+def test_streak_feature_counts_consecutive_failures():
+    cfg = ExperimentConfig()
+    cfg.features.streak_grippers = ("parallel_jaw", "vacuum")
+    env, fe = build(cfg, seed=0)
+    env.reset(parts=[box(21, 21), box(10, 10, length=6, width=3)])
+    assert fe.names[-1] == "seri_başarısız"
+    for expected in (1, 2, 3, 4):
+        env.step(Action(0, 35, 35))                        # boş nokta
+        assert env.fail_streak == expected
+    feats = fe.compute(env.observe(), env.fail_map, env.fail_streak)
+    assert fe.describe(int(feats.state_ids[0, 21, 21]))["seri_başarısız"] == 3   # "3+"
+    env.step(Action(angle_idx(env, 90), 21, 21))
+    assert env.fail_streak == 0 or env.parts[0].alive      # başarıda sıfırlanır

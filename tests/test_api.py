@@ -29,7 +29,7 @@ def test_scenarios_have_intended_outcomes():
 
 def test_meta_and_methods(client):
     m = client.get("/api/meta").json()
-    assert m["n_states"] == 15552 and len(m["angles_deg"]) == 4
+    assert m["n_states"] == 38880 and len(m["angles_deg"]) == 4
     assert client.get("/api/meta?gripper=vacuum").json()["angles_deg"] == [0.0]
     ids = [x["id"] for x in client.get("/api/methods").json()]
     assert ids == ["random", "heuristic"]

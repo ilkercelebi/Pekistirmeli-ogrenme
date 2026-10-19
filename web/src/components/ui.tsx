@@ -85,7 +85,7 @@ export function Banner({ event }: { event: GraspEvent | null }) {
       <div>
         <div className="o" style={{ color: o.color }}>{o.label}</div>
         <div className="r">
-          {event.reason} · θ = {Math.round(event.action.theta_deg ?? 0)}° · ({event.action.col}, {event.action.row})
+          {event.reason}{!event.action.stop && <> · θ = {Math.round(event.action.theta_deg ?? 0)}° · ({event.action.col}, {event.action.row})</>}
         </div>
       </div>
       <div className="w" style={{ color: o.color }}>{event.reward > 0 ? "+" : ""}{event.reward.toFixed(1)}</div>

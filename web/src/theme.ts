@@ -19,6 +19,7 @@ export const OUTCOME: Record<Outcome, { label: string; reward: string; color: st
   success: { label: "BAŞARILI", reward: "+1", color: C.success },
   collision: { label: "ÇARPIŞMA", reward: "−1", color: C.collision },
   fail: { label: "BAŞARISIZ", reward: "−0.2", color: C.fail },
+  stop: { label: "DURDU", reward: "0", color: C.info },
 };
 
 export const TONE: Record<Tone, string> = { good: C.success, mid: C.fail, bad: C.collision };

@@ -38,6 +38,7 @@ import numpy as np  # noqa: E402
 
 from binpick import ExperimentConfig, build, load_run, make_agent, run_episode  # noqa: E402
 from binpick.analysis import marginal_q  # noqa: E402
+from binpick.oracle import run_oracle_episode  # noqa: E402
 from binpick.features import BIN_LABELS  # noqa: E402
 from binpick.training import train  # noqa: E402
 from binpick.viz import moving_average, render, save_gif  # noqa: E402
@@ -47,14 +48,16 @@ TEST_SEED0 = 2_000_000           # eğitimde hiç görülmeyen test kutuları (e
 GIF_SEED = 7
 METRICS = ["success_rate", "collision_rate", "fail_rate", "cleared", "return", "steps"]
 LABEL = {"random": "Rastgele", "heuristic": "Sezgisel", "heuristic_face": "Sezgisel + yüzey bilgisi",
-         "q_learning": "Q-learning", "sarsa": "SARSA"}
+         "q_learning": "Q-learning", "sarsa": "SARSA", "double_q": "Double Q-learning", "oracle": "Kâhin (üst sınır)"}
 GRIPPER = {"parallel_jaw": "Parmaklı tutucu", "vacuum": "Vakumlu tutucu"}
 COLOR = {"random": "#8b949e", "heuristic": "#58a6ff", "heuristic_face": "#3fb950", "q_learning": "#ff7a1a",
-         "sarsa": "#bc8cff"}
-METHODS = ["random", "heuristic", "heuristic_face", "q_learning", "sarsa"]
-BASELINES = {"parallel_jaw": ["random", "heuristic"],
+         "sarsa": "#bc8cff", "double_q": "#39c5cf", "oracle": "#d4a72c"}
+LEARNERS = ["q_learning", "sarsa", "double_q"]
+METHODS = ["random", "heuristic", "heuristic_face", *LEARNERS, "oracle"]
+# Kâhin: gizli bilgiyi (parça kimliği, gerçek kayma olasılığı) bilen politika; ulaşılabilecek üst sınır.
+BASELINES = {"parallel_jaw": ["random", "heuristic", "oracle"],
              # vakumda sezgisele Q-learning'in gördüğü yüzey_kapalı bilgisi de verilir (adil karşılaştırma)
-             "vacuum": ["random", "heuristic", "heuristic_face"]}
+             "vacuum": ["random", "heuristic", "heuristic_face", "oracle"]}
 
 # Ablasyon: Q-learning. Her satır (isim, tutucu, açıklama, konfigürasyon değişikliği, tüm tohumlar mı).
 # Tek tohumlu satırlar yalnız tohum 0 ile eğitilir (ablation/<isim>); tüm tohumlu satırlar ana deneyle
@@ -70,6 +73,12 @@ ABLATIONS = [
     ("nomem", "parallel_jaw", "hafıza (önceden denendi) yok", {"features.memory_feature": False}, False),
     ("vacuum_noface", "vacuum", "yüzey_kapalı yok", {"features.face_feature": False}, True),
     ("vacuum_nomem", "vacuum", "hafıza (önceden denendi) yok", {"features.memory_feature": False}, False),
+    ("coarse_bins", "parallel_jaw", "kaba kovalar (hizalama 2, eksen ortası 3 kova)",
+     {"features.align_bins": (1.0,), "features.axis_center_bins": (0.25, 0.55)}, False),
+    ("nostop", "parallel_jaw", "dur eylemi yok", {"env.allow_stop": False}, False),
+    ("vacuum_nostop", "vacuum", "dur eylemi yok", {"env.allow_stop": False}, False),
+    ("vacuum_nostreak", "vacuum", "seri başarısızlık özelliği yok", {"features.streak_grippers": ()}, True),
+    ("dq_gamma0.9", "parallel_jaw", "Double Q-learning, γ = 0.9", {"agent.algo": "double_q", "agent.gamma": 0.9}, False),
 ]
 
 
@@ -138,13 +147,17 @@ def _brief(result) -> str:
 
 def eval_job(job: dict) -> tuple[str, dict]:
     """Alt süreçte çalışır: bir yöntemi test kutularında değerlendirir (keşif kapalı)."""
-    if job["method"] in ("random", "heuristic", "heuristic_face"):
-        cfg = make_cfg("q_learning", job["gripper"], 1)
-        agent = make_agent(job["method"], 0, seed=0)
+    if job["method"] == "oracle":
+        env, _ = build(make_cfg("q_learning", job["gripper"], 1), seed=0)
+        rows = [run_oracle_episode(env, seed=TEST_SEED0 + i) for i in range(job["n"])]
     else:
-        cfg, agent = load_run(job["dir"], seed=0)
-    env, fe = build(cfg, seed=0)
-    rows = [run_episode(env, agent, fe, learn=False, seed=TEST_SEED0 + i) for i in range(job["n"])]
+        if job["method"] in ("random", "heuristic", "heuristic_face"):
+            cfg = make_cfg("q_learning", job["gripper"], 1)
+            agent = make_agent(job["method"], 0, seed=0)
+        else:
+            cfg, agent = load_run(job["dir"], seed=0)
+        env, fe = build(cfg, seed=0)
+        rows = [run_episode(env, agent, fe, learn=False, seed=TEST_SEED0 + i) for i in range(job["n"])]
     res = {k: float(np.mean([r[k] for r in rows])) for k in METRICS}
     res.update({k + "_box_std": float(np.std([r[k] for r in rows])) for k in METRICS})
     return job["key"], res
@@ -194,7 +207,7 @@ def plot_learning(run_dirs: dict[str, list[Path]], baselines: dict, gripper: str
             if len(dirs) > 1:
                 ax.fill_between(x, m - s, m + s, color=COLOR[algo], alpha=0.18, lw=0)
     for ax, (k, title) in zip(axes.flat, panels):
-        for b, style in (("random", ":"), ("heuristic", "--"), ("heuristic_face", "-.")):
+        for b, style in (("random", ":"), ("heuristic", "--"), ("heuristic_face", "-."), ("oracle", (0, (6, 2, 1, 2)))):
             if b in baselines:
                 ax.axhline(baselines[b][k], color=COLOR[b], ls=style, lw=1.5, label=f"{LABEL[b]} (test)")
         ax.set_title(title)
@@ -218,7 +231,7 @@ def plot_greedy(run_dirs: dict[str, list[Path]], baselines: dict, gripper: str, 
             ax.errorbar(x, ys.mean(0), yerr=ys.std(0) if len(dirs) > 1 else None, color=COLOR[algo],
                         marker="o", ms=3.5, lw=1.8, capsize=2, label=LABEL[algo])
     for ax, (k, t) in zip(axes, (("success_rate", "Başarı"), ("collision_rate", "Çarpışma"), ("cleared", "Boşaltma"))):
-        for b, style in (("heuristic", "--"), ("heuristic_face", "-.")):
+        for b, style in (("heuristic", "--"), ("heuristic_face", "-."), ("oracle", (0, (6, 2, 1, 2)))):
             if b in baselines:
                 ax.axhline(baselines[b][k], color=COLOR[b], ls=style, lw=1.5, label=LABEL[b])
         ax.set_title(f"Açgözlü politika (ε = 0): {t}")
@@ -330,13 +343,13 @@ def fmt_cell(a: dict, k: str, pct: bool) -> str:
 def results_table(agg: dict) -> str:
     head = "| Yöntem | Başarı oranı | Çarpışma oranı | Başarısız kavrama | Boşaltılan parça | Getiri | Adım |"
     lines = [head, "|---|---|---|---|---|---|---|"]
-    best = max((m for m in agg), key=lambda m: agg[m]["success_rate"])
+    best = max((m for m in agg if m != "oracle"), key=lambda m: agg[m]["success_rate"])
     for m in METHODS:
         if m not in agg:
             continue
         a = agg[m]
         name = f"**{LABEL[m]}**" if m == best else LABEL[m]
-        tag = f" ({a['n_seeds']} tohum)" if m in ("q_learning", "sarsa") else ""
+        tag = f" ({a['n_seeds']} tohum)" if m in LEARNERS else ""
         cells = [fmt_cell(a, k, True) for k in ("success_rate", "collision_rate", "fail_rate", "cleared")]
         cells += [fmt_cell(a, "return", False), fmt_cell(a, "steps", False)]
         lines.append(f"| {name}{tag} | " + " | ".join(cells) + " |")
@@ -347,7 +360,7 @@ def headline(agg_by_gripper: dict) -> str:
     """Özet için tek cümlelik ana bulgu (parmaklı tutucu üzerinden)."""
     g = "parallel_jaw" if "parallel_jaw" in agg_by_gripper else next(iter(agg_by_gripper))
     agg = agg_by_gripper[g]
-    learners = [m for m in ("q_learning", "sarsa") if m in agg]
+    learners = [m for m in LEARNERS if m in agg]
     if not learners or "heuristic" not in agg:
         return "Sonuç için eğitim gerekli."
     best = max(learners, key=lambda m: agg[m]["success_rate"])
@@ -360,6 +373,10 @@ def headline(agg_by_gripper: dict) -> str:
            f"kutunun %{b['cleared'] * 100:.1f}'i boşaltıldı.")
     if r:
         txt += f" Rastgele seçimde başarı %{r['success_rate'] * 100:.1f}, çarpışma %{r['collision_rate'] * 100:.1f}."
+    o = agg.get("oracle")
+    if o:
+        txt += (f" Gizli bilgiyi bilen kâhin politika %{o['success_rate'] * 100:.1f} başarıya ulaşıyor; öğrenen ajan bu "
+                f"üst sınırın **%{100 * b['success_rate'] / max(o['success_rate'], 1e-9):.0f}**'ine erişti.")
     return txt
 
 
@@ -464,7 +481,7 @@ def parse_args(argv=None):
     p.add_argument("--quick", action="store_true", help="hızlı deneme (1 tohum, 300 bölüm, results/quick)")
     p.add_argument("--episodes", type=int, default=None)
     p.add_argument("--seeds", type=int, nargs="+", default=None)
-    p.add_argument("--algos", nargs="+", default=["q_learning", "sarsa"], choices=["q_learning", "sarsa"])
+    p.add_argument("--algos", nargs="+", default=LEARNERS, choices=LEARNERS)
     p.add_argument("--grippers", nargs="+", default=["parallel_jaw", "vacuum"], choices=["parallel_jaw", "vacuum"])
     p.add_argument("--test-boxes", type=int, default=None)
     p.add_argument("--eval-episodes", type=int, default=20, help="eğitim sırasındaki ara değerlendirme kutusu")

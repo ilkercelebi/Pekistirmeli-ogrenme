@@ -46,7 +46,8 @@ function ScenarioPlayer() {
 
   return (
     <div className="split">
-      <RobotCell meta={meta} parts={parts} depth={sc.depth} event={event} eventKey={key} onEventDone={done} speed={0.9}
+      <RobotCell meta={meta} parts={parts} depth={sc.depth} event={event} eventKey={key} onEventDone={done} speed={0.8}
+        focus={[sc.event.action.col - (meta.grid.size - 1) / 2, sc.event.action.row - (meta.grid.size - 1) / 2]}
         height={560} signal={last ? last.outcome : "idle"} view="close">
         <div className="overlay-tl hud"><span className="dot" style={{ background: C.accent }} />Senaryo {idx + 1} / {list.length}</div>
         <div className="overlay-bl hud">Sürükle: döndür · Tekerlek: yakınlaştır</div>
@@ -98,7 +99,7 @@ export default function Intro() {
       <div className="grid g4">
         <Stat label="Kutudaki parça" value="6–14" sub="rastgele yığın" />
         <Stat label="Aday eylem / adım" value="6.400" sub="40 × 40 nokta × 4 açı" />
-        <Stat label="Q tablosu" value="15.552" sub="hücre (parmaklı tutucu)" color={C.accent} />
+        <Stat label="Q tablosu" value="38.880" sub="hücre (parmaklı tutucu)" color={C.accent} />
         <Stat label="Sinir ağı" value="0" sub="parametre öğrenilmiyor" color={C.success} />
       </div>
 

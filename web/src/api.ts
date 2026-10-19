@@ -1,6 +1,6 @@
 // Python API ile konuşan ince katman ve paylaşılan tipler.
 
-export type Outcome = "success" | "collision" | "fail";
+export type Outcome = "success" | "collision" | "fail" | "stop";
 export type GripperKind = "parallel_jaw" | "vacuum";
 export type Tone = "good" | "mid" | "bad";
 
@@ -22,6 +22,7 @@ export interface GraspAction {
   row: number;
   col: number;
   theta_deg?: number;
+  stop?: boolean;
 }
 
 export interface FeatureValue {

@@ -5,7 +5,7 @@
 3. **MDP tasarımı:** durum = yükseklik haritası + tutucu geometrisi; eylem = $(x, y, \theta)$; ödül tablosu.
 4. **Neden klasik RL?** Ödevde önerilen yöntem FCN-DQN. Biz tablo tabanlı yöntemi seçtik: yorumlanabilir, GPU gerektirmiyor, tasarım kararları görünür.
 5. **Simülasyon:** kutu, parça tipleri, yığın oluşumu, parmaklı ve vakumlu tutucu, sonuç kuralları (akış şeması).
-6. **Durum kümeleme:** 10 özelliğin tablosu; "6400 aday eylem → 15.552 tablo hücresi"; özelliklerin teşhis ve kâhin üst sınırıyla nasıl seçildiği (README 4.1.1); Q-haritası nasıl oluşur.
+6. **Durum kümeleme:** 10 özelliğin tablosu; "6400 aday eylem → 38.880 tablo hücresi"; özelliklerin teşhis ve kâhin üst sınırıyla nasıl seçildiği (README 4.1.1); Q-haritası nasıl oluşur.
 7. **Algoritma:** Q-learning ve SARSA güncelleme denklemleri, ε-açgözlü keşif, hiperparametreler.
 8. **Canlı demo (2–3 dk):** `python serve.py` → http://localhost:8000
    - Problem sayfası: senaryo oynatıcı

@@ -79,6 +79,8 @@ def parts_json(env) -> list[dict]:
 
 
 def action_json(env, a: Action) -> dict:
+    if a.stop:
+        return {"angle_idx": -1, "row": -1, "col": -1, "theta_deg": 0.0, "stop": True}
     return {"angle_idx": a.angle_idx, "row": a.row, "col": a.col,
             "theta_deg": float(np.degrees(env.angles[a.angle_idx]))}
 
@@ -127,7 +129,7 @@ class Session:
     done: bool = False
 
     def refresh(self):
-        self.feats = self.fe.compute(self.obs, self.env.fail_map)
+        self.feats = self.fe.compute(self.obs, self.env.fail_map, self.env.fail_streak)
 
     def state(self) -> dict:
         env = self.env
@@ -203,6 +205,8 @@ def create_session(body: SessionIn):
     env, fe = build(cfg, seed=body.seed)
     s = Session(cfg=cfg, env=env, fe=fe, agent=agent, method=body.method, seed=body.seed)
     s.obs = env.reset(seed=body.seed)
+    agent.allow_stop = cfg.env.allow_stop
+    agent.begin_episode()
     s.refresh()
     sid = uuid.uuid4().hex[:12]
     with LOCK:
@@ -218,6 +222,7 @@ def reset_session(sid: str, body: ResetIn):
     if body.seed is not None:
         s.seed = body.seed
     s.obs = s.env.reset(seed=s.seed)
+    s.agent.begin_episode()
     s.history, s.done = [], False
     s.refresh()
     return session_state(sid, s)
@@ -239,10 +244,14 @@ def step_session(sid: str, body: StepIn):
         action = Action(a.angle_idx, a.row, a.col)
         chosen_by = "user"
 
-    fv = feature_vector(s.fe, s.feats, action)
-    q = float(s.agent.Q[fv["state_id"]]) if isinstance(s.agent, TabularAgent) else None
+    if action.stop:
+        fv, q = {"features": []}, 0.0 if isinstance(s.agent, TabularAgent) else None
+    else:
+        fv = feature_vector(s.fe, s.feats, action)
+        q = float(s.agent.Q[fv["state_id"]]) if isinstance(s.agent, TabularAgent) else None
     parts_before = parts_json(s.env)
     s.obs, reward, term, trunc, info = s.env.step(action)
+    s.agent.observe(info)
     s.done = term or trunc
     record = {"step": info["step"], "action": action_json(s.env, action), "reward": reward,
               "outcome": info["outcome"], "reason": info["reason"], "code": info["code"],
