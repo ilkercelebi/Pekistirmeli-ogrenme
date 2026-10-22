@@ -1,22 +1,56 @@
-# YouTube Video Senaryosu (4–5 dk)
+# YouTube Video Senaryosu (≈5 dk)
 
 Kayıt: arayüzün ekran kaydı (`python serve.py` → http://localhost:8000) ve üstüne anlatım sesi.
-Kayıttan önce en az bir Q-learning eğitimi bitmiş olmalı (komut satırından ya da "Eğitim ve sonuçlar" sayfasından).
+Kayıttan önce `python run_experiments.py` (ya da en az bir Q-learning eğitimi) bitmiş olmalı; arayüz `results/` klasöründeki modelleri yükler.
 
-| Süre | Ekranda | Anlatım |
+Sayılar README'deki son deneyden (3 tohum × 3.000 bölüm, eğitimde görülmemiş 200 test kutusu, keşif kapalı).
+
+## Akış
+
+| Süre | Ekranda | Ne gösterilecek |
 |---|---|---|
-| 0:00–0:20 | **Problem** sayfasının başlığı | Ödev 8: düzensiz kutudan parça alma için optimal kavrama seçimi. Klasik, tablo tabanlı pekiştirmeli öğrenme. |
-| 0:20–1:00 | **Problem** · senaryo oynatıcı (1→4) | Robot hücresi: kutu, gantry robot, derinlik kamerası. Dört senaryo: doğru kavrama, duvara çarpma, yanlış açı, üstü kapalı parça. |
-| 1:00–1:40 | **MDP tasarımı** | Gerçek sahne ve kameranın gördüğü harita yan yana; dört bilek açısı; ödül kartları (+1 / −1 / −0.2). |
-| 1:40–2:30 | **Yöntem** | Neden derin RL değil; 6.400 aday eylem → 38.880 tablo hücresi (10 özellik); özellik haritaları; bir piksele tıklayıp φ(s,a) hesabını göster; Q-learning formülü. |
-| 2:30–3:00 | **Eğitim ve sonuçlar** | Öğrenme eğrisi: ε azaldıkça başarı artıyor, çarpışma sıfıra iniyor. "Ajan ne öğrendi?": duvar = çarpar kırmızı, genişlik = sığar yeşil. |
-| 3:00–3:50 | **Simülasyon** · Q-learning ajanı, 3D katman "Q-haritası", "Kutuyu boşalt" | Q-haritası parçaların üstünde: yeşil iyi noktalar. Ajan kutuyu boşaltıyor, parçalar tepsiye diziliyor. |
-| 3:50–4:15 | **Simülasyon** · manuel mod | Duvar dibine tıkla: çarpışma ve kırmızı ışık. Doğru noktaya tıkla: başarı. |
-| 4:15–4:40 | **Karşılaştırma** | Rastgele, sezgisel ve Q-learning aynı test kutularında: grafik ve tablo. |
-| 4:40–5:00 | Problem sayfası + GitHub linki | Sınırlamalar (2.5B simülasyon, durum kümeleme) ve gelecek çalışma. |
+| 0:00–0:20 | **Problem** sayfasının başlığı | Başlık, ödev adı |
+| 0:20–1:00 | **Problem** · senaryo oynatıcı (1 → 4) | Doğru kavrama, duvara çarpma, yanlış açı (kayma), üstü kapalı parça |
+| 1:00–1:40 | **MDP tasarımı** | Gerçek sahne ↔ kameranın gördüğü harita; dört bilek açısı; ödül kartları; dur eylemi |
+| 1:40–2:30 | **Yöntem** | 6.400 aday → 38.880 hücre; özellik haritaları; bir piksele tıklayıp φ(s,a); Q-learning / SARSA / Double Q formülleri |
+| 2:30–3:10 | **Eğitim ve sonuçlar** | Öğrenme eğrisi; “Ajan ne öğrendi?” çubukları |
+| 3:10–4:00 | **Simülasyon** · Q-learning ajanı, “Q-haritası” katmanı, “Kutuyu boşalt” | Yeni (görülmemiş) kutu; ajan kutuyu boşaltıyor, parçalar tepsiye diziliyor |
+| 4:00–4:20 | **Simülasyon** · manuel mod | Duvar dibine tıkla → çarpışma, kırmızı ışık; iyi noktaya tıkla → başarı |
+| 4:20–4:45 | **Karşılaştırma** | Rastgele, sezgisel ve ajanlar aynı test kutularında |
+| 4:45–5:00 | README / GitHub sayfası | Sonuç, sınırlamalar, link |
+
+## Anlatım metni
+
+**0:00 — Giriş.**
+Merhaba. Bu videoda Ödev 8'i anlatıyorum: bin picking, yani bir robotun kutuya rastgele dökülmüş parçaları tek tek alması. Robot her seferinde şuna karar vermeli: parçayı hangi noktadan ve hangi açıyla tutacak? Bu problemi derin öğrenme kullanmadan, klasik, tablo tabanlı pekiştirmeli öğrenmeyle çözdük.
+
+**0:20 — Problem senaryoları.**
+Robot hücresinde bir kutu, üstte bir gantry robot ve derinlik kamerası var. İlk senaryo doğru bir kavrama: parmaklar parçanın kısa kenarından sıkıyor ve parça tepsiye gidiyor. İkincisinde parça duvarın dibinde; bu açıyla parmak duvarın üstüne iniyor: çarpışma, en pahalı hata. Üçüncüsünde parça tutuluyor ama yanlış açıyla tutulduğu için kalkarken kayıyor. Dördüncüsünde parçanın üstünde başka bir parça var; robot onu çekip çıkaramıyor.
+
+**1:00 — MDP.**
+Bunu bir Markov karar süreci olarak kurduk. Durum, kameranın gördüğü 44'e 44'lük yükseklik haritası ve robotun kendi başarısızlık hafızası. Eylem, haritadaki bir nokta ve dört bilek açısından biri; adım başına 6.400 aday. Ödül ödevdeki gibi: başarılı alım +1, çarpışma −1, diğer başarısızlıklar −0.2. Bir de “dur” eylemi ekledik: kutuda alınabilir parça kalmadıysa robot boşa denemek yerine durabiliyor.
+
+**1:40 — Yöntem.**
+Ham görüntü tabloya sığmaz. O yüzden her aday kavramayı birkaç soruya indiriyoruz: nokta yüksek mi, yüzey düz mü, yanında daha yüksek parça var mı, duvara yakın mı, parmakların ineceği yer boş mu, parça açıklığa sığıyor mu, parmaklar parçanın hangi kenarıyla hizalı, parçanın üstü kapalı mı, burası daha önce denendi mi. Bu cevapların her kombinasyonu bir tablo hücresi: parmaklı tutucu için 38.880, vakum için 3.456 hücre. Bir piksele tıklayınca hangi hücreye düştüğünü görüyoruz. Tabloyu üç klasik algoritmayla öğreniyoruz: Q-learning, SARSA ve Double Q-learning.
+
+**2:30 — Eğitim ve sonuçlar.**
+Başta ajan rastgele davranıyor ve kavramaların üçte biri duvara çarpıyor. Keşif azaldıkça başarı artıyor; yaklaşık 1.200. bölümde elle yazdığımız sezgisel kuralı geçiyor. Tablonun en güzel tarafı, ajanın öğrendiğini okuyabilmek: “duvar = çarpar” tablodaki tek negatif değer. Bunu kimse söylemedi, ajan kendisi buldu. Diğer sıralamalar da sezgiyle uyumlu: yüksek nokta iyi, boş parmak bölgesi iyi, üstü kapalı yüzey kötü.
+
+**3:10 — Simülasyon.**
+Şimdi ajana hiç görmediği bir kutu veriyorum. Q-haritasını açınca yeşil noktalar ajanın iyi bulduğu kavramalar. “Kutuyu boşalt” diyorum: ajan parçaları tek tek alıp tepsiye diziyor. Alınabilir parça kalmayınca duruyor.
+
+**4:00 — Manuel mod.**
+Elle duvarın dibine tıklarsam robot duvara çarpıyor ve kırmızı ışık yanıyor. Ajanın seçtiği türden bir noktaya tıklarsam alım başarılı.
+
+**4:20 — Karşılaştırma.**
+Aynı test kutularında: rastgele politika yüzde 3, sezgisel kural yüzde 70.6, Q-learning yüzde 91.5 başarı. Çarpışma sıfır. Simülasyonun gizli bilgisini gören bir “kâhin” kural yüzde 96.6'ya çıkıyor; yani ajan ulaşılabilecek tavanın yüzde 95'inde. Daha zor olan vakumlu tutucuda SARSA yüzde 85.1, sezgisel yüzde 70.2.
+
+**4:45 — Kapanış.**
+Sınırlamalarımız: simülasyon basit ve kurallı, özellikleri elle tasarladık ve deneyler kararların büyük ölçüde tek adımlık olduğunu gösteriyor. Kod, makale tarzı README ve tüm deneyler GitHub'da; link açıklamada. İzlediğiniz için teşekkürler.
 
 ## Kayıt ipuçları
-- Tarayıcıyı tam ekran yap. 3D sahnede sürükleyerek kamerayı çevirebilir, "Hücre / Yakın / Üstten" görünümlerine geçebilirsin.
+- Tarayıcıyı tam ekran yap. 3D sahnede sürükleyerek kamerayı çevirebilir, “Hücre / Yakın / Üstten” görünümlerine geçebilirsin.
 - Simülasyon sayfasında animasyon hızını 1× ya da 2× tut; 4× video için hızlı kalır.
-- Sezgisel yöntem ile Q-learning'in farkının açıkça görüldüğü bir kutu tohumu seç (birkaç tohum dene).
-- Videoyu "Liste dışı" (unlisted) yükleyip linki README'nin en üstüne ekle.
+- Q-learning'in sezgiselden açıkça iyi olduğu bir kutu tohumu seç (birkaç tohum dene).
+- Sesi ayrı kaydetmek daha kolay: önce ekranı kaydet, sonra anlatımı üstüne oku.
+- Videoyu “Liste dışı” (unlisted) yükleyip linki README'nin en üstündeki `<YOUTUBE_LINKI>` yerine yaz.

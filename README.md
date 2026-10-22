@@ -11,11 +11,13 @@
 
 Endüstriyel bin picking problemlerinde robot, kutuya rastgele yığılmış parçaları tek tek almalıdır. Yanlış seçilen bir kavrama noktası tutucunun kutu duvarına çarpmasına ya da parçanın tutucudan kayıp düşmesine yol açar. Bu çalışmada problem bir Markov Karar Süreci (MDP) olarak modellendi. Durum, derinlik kamerasından alınan yükseklik haritasıdır; eylem, görüntü koordinatlarındaki kavrama noktası $(x, y)$ ile bilek açısı $\theta$'dır. Ödüller ödev tanımındaki gibidir: başarılı alma $+1$, çarpışma $-1$, başarısız kavrama $-0.2$.
 
-Ödevde önerilen tam evrişimli DQN yerine **derin öğrenme kullanmayan, tablo tabanlı** bir yaklaşım geliştirildi. Her aday kavrama eylemi, yükseklik haritasından çıkarılan birkaç ayrık yerel özelliğe indirgendi (durum-eylem kümeleme). **Q-learning** ve **SARSA**, sinir ağı olmadan, birkaç yüz hücrelik bir Q tablosu öğrenir. Tablo değerleri görüntünün her pikseline yerleştirilerek ödevdeki "piksel bazlı Q-haritası" fikri derin öğrenme olmadan elde edildi. Yöntemler, kendi yazdığımız 2.5 boyutlu bir kutu simülasyonunda rastgele ve kural tabanlı (sezgisel) yöntemlerle karşılaştırıldı.
+Ödevde önerilen tam evrişimli DQN yerine **derin öğrenme kullanmayan, tablo tabanlı** bir yaklaşım geliştirildi. Her aday kavrama eylemi, yükseklik haritasından ve robotun kendi hafızasından çıkarılan 7–10 ayrık özelliğe indirgendi (durum-eylem kümeleme). **Q-learning**, **SARSA** ve **Double Q-learning**, sinir ağı olmadan bir Q tablosu öğrenir (parmaklıda 38.880, vakumda 3.456 hücre). Robot, kutuda alınabilir parça kalmadığına karar verince **durabilir**. Tablo değerleri görüntünün her pikseline yerleştirilerek ödevdeki "piksel bazlı Q-haritası" fikri derin öğrenme olmadan elde edildi. Yöntemler, kendi yazdığımız 2.5 boyutlu bir kutu simülasyonunda rastgele seçim, elle yazılmış bir sezgisel kural ve gizli bilgiyi bilen bir **kâhin** (üst sınır) ile karşılaştırıldı. Özellikler, kalan hatalar teşhis edilip kâhinle karşılaştırılarak adım adım seçildi (bölüm 4.1.1).
 
 <!-- OZET:BASLA (run_experiments.py doldurur) -->
 **Ana bulgu:** Parmaklı tutucu ile Q-learning, eğitimde görülmemiş test kutularında **%91.5** başarı oranına ulaştı ve en yüksek nokta sezgiselini (%70.6) 20.9 puan farkla geçti; çarpışma oranı %0.0, kutunun %99.8'i boşaltıldı. Rastgele seçimde başarı %3.3, çarpışma %32.4. Gizli bilgiyi bilen kâhin politika %96.6 başarıya ulaşıyor; öğrenen ajan bu üst sınırın **%95**'ine erişti.
 <!-- OZET:BITIR -->
+
+Vakumlu tutucuda SARSA **%85.1** başarı oranına ulaştı (sezgisel + yüzey bilgisi %70.2, kâhin %94.4). Ablasyonlar, bu problemde ardışık kararların etkisinin zayıf olduğunu (γ = 0 ≈ γ = 0.5) ve yüksek γ'da Q-learning'in çöküşünü Double Q-learning'in önlediğini (%40.6 → %89.8) gösteriyor.
 
 ---
 
@@ -278,13 +280,22 @@ Yüzey bilgisinin etkisi (başarı oranı, puan): sezgiselde **+1.9**, Q-learnin
 
 ### Yorum
 
-`<Öğrenme eğrileri: ε azaldıkça başarı oranı nasıl değişti, kaçıncı bölümde sezgisel yöntemi geçti?>`
+**Öğrenme süreci.** Parmaklı tutucuda ajan rastgele davranışla başlıyor: ilk bölümlerde başarı %5, çarpışma %31. Keşif oranı ε eğitimin ilk yarısında 1.0'dan 0.05'e indikçe başarı neredeyse doğrusal artıyor. Keşifli eğitim politikası, sezgiselin test sonucunu (%70.6) yaklaşık **1.200. bölümde** geçiyor ve ε'nun sabitlendiği 1.500. bölümden sonra %87 civarında duruyor. Çarpışma aynı dönemde %31'den %1.5'e iniyor; kalan %1.5, ε = 0.05 ile yapılan rastgele denemelerden geliyor. Keşif kapatıldığında (test) çarpışma sıfır, başarı %91.5. Üç algoritmanın ve üç tohumun eğrileri neredeyse üst üste biniyor (gölgeli bantlar ±1 std). Vakumda öğrenme daha erken başlıyor: SARSA'nın açgözlü politikası ilk değerlendirmeden itibaren sezgiselle aynı düzeyde ve 1.000. bölümde onu geçiyor. Q-learning ve Double Q ise sezgiseli 1.250. bölüm civarında geçiyor.
 
-`<Q tablosu ne söylüyor? "Ajan ne öğrendi?" grafiğinden örnekler: örn. "duvar = çarpar" kovası güçlü negatif, "genişlik = sığar" pozitif.>`
+**Q tablosu ne öğrendi?** Tablo yöntemi okunabilir olduğu için ajanın öğrendiği kurallar doğrudan görülebiliyor ("ajan ne öğrendi?" grafikleri: her özelliğin her kovası için ziyaret ağırlıklı ortalama Q). Değerler 1'i aşabiliyor, çünkü γ = 0.5 ile sonraki alımların değeri de içeriliyor.
+- **Tek negatif kova "duvar = çarpar"** (parmaklıda yaklaşık −0.15, vakumda −0.4). Ajan −1 cezasının nereden geldiğini tam olarak öğrenmiş.
+- **Fiziksel sezgiyle uyumlu sıralamalar:** yüksek nokta > alçak > zemin; boş parmak bölgesi (1.55) > dolu (0.3); açıklığa sığan genişlik (1.5) > çok geniş (0.3); eksen ortasında "tam ortada" (1.25) > "uca yakın" (0.7); üstü kapalı yüzey ve önceden denenmiş bölge belirgin biçimde düşük. Vakumda iyi sızdırmazlık (≈1.0) > kötü (≈0).
+- **Durma kararı:** vakumda *seri başarısızlık* özelliğinin değeri üst üste başarısızlık arttıkça düzenli düşüyor (0 → 1.25, 3+ → 0.2). Ajan, art arda başarısızlığın "kutuda alınabilir parça kalmadı" işareti olduğunu öğrenmiş; bu, dur eyleminin neden kararlı hâle geldiğini açıklıyor.
+- **Beklenmedik bir ayrıntı:** hizalamada "kısmen" kovası (1.3), "kısa kenardan" kovasından (1.0) biraz yüksek. Bu oran iki farklı parça tipini (kare parçalar ve hafif çapraz tutulan uzun parçalar) aynı kovada topluyor. Tablo yönteminin sınırı tam olarak bu: ajan, özelliklerin ayırt ettiğinden fazlasını öğrenemez.
 
-`<Q-learning ve SARSA farkı; parmaklı ve vakumlu tutucu farkı.>`
+**Algoritmalar ve tutucular.** Parmaklıda üç algoritma arasındaki fark küçük (Q-learning %91.5, Double Q %90.5, SARSA %90.2); farkın büyüklüğü tohumlar arası sapmayla aynı düzeyde. Vakumda SARSA belirgin biçimde önde (%85.1, Q-learning %82.0, Double Q %80.4). Bunun muhtemel sebebi şu: SARSA, keşif dahil gerçekten izlediği politikanın değerini öğrenir ve bu yüzden başarısız denemelerin süreceği durumları daha temkinli değerlendirir. Q-learning'in max hedefi ise devam etmenin değerini iyimser tahmin eder. SARSA kutu başına daha az denemeyle (10.4'e karşı 10.9) aynı oranda parça boşaltıyor (%89.0'a karşı %89.3). Vakum daha zor bir problem: kâhin bile kutunun yalnız %90.8'ini boşaltabiliyor, çünkü 1.5 cm'lik vantuz çok dar parçalara oturamıyor. Öğrenen ajan bu üst sınıra boşaltmada çok yakın (%89–90). Başarı oranında parmaklıda kâhinin %95'ine, vakumda %90'ına ulaşıyor.
 
-`<Ablasyon: γ = 0 ile γ > 0 farkı ardışık kararların etkisini gösteriyor mu? Tek açıyla başarım ne kadar düşüyor?>`
+**Ablasyon ne gösteriyor?** (Parmaklı satırları tek tohumla ölçüldü; farklar sapmanın birkaç katı olduğunda anlamlıdır.)
+- **Bilek açısı en kritik karar:** tek açıyla başarı %91.4'ten %66.7'ye düşüyor (−25 puan).
+- **Özellikler arasında en büyük katkı "yüzeyi kapatan parça":** parmaklıda −7.6 puan, vakumda (3 tohum) −14.8 puan. Hizalama (−1.7), hafıza (−1.2) ve ince kovalar (−0.7) daha küçük ama aynı yönde katkı yapıyor.
+- **Öğrenme hızı:** sabit α = 0.1 ile %85.6 (−5.8). Ziyaret sayısına bağlı α, binlerce hücreli seyrek tabloda belirgin şekilde daha iyi.
+- **γ ve ardışıklık:** γ = 0 (%91.5) ile γ = 0.5 (%91.4) aynı. Bu problemde bir kavramanın sonraki kararlara etkisi zayıf, iyi kavrama seçimi pratikte tek adımlık bir karar. γ = 0.9'da Q-learning çöküyor (%40.6); aynı ayarda Double Q-learning %89.8'e ulaşıyor. Çöküşün sebebi, binlerce aday eylem üzerinden alınan max'ın yarattığı aşırı iyimser tahmin.
+- **Dur eylemi:** parmaklıda etkisiz (%91.4, robot hemen hiç takılmıyor), vakumda kritik: dur eylemi olmadan %65.9. Seri başarısızlık özelliği olmadan (3 tohum) %71.4; bazı tohumlar durmayı hiç öğrenemiyor.
 
 ---
 
@@ -293,11 +304,15 @@ Yüzey bilgisinin etkisi (başarı oranı, puan): sezgiselde **+1.9**, Q-learnin
 - **Durum tasarımı belirleyicidir.** Tablo yöntemi, ancak seçilen özelliklerin ayırt edebildiği kadarını öğrenebilir. Aynı yükseklikte yan yana duran iki parça yükseklik haritasında tek bir yüzey gibi görünür; bu belirsizlik bilinçli olarak bırakıldı.
 - **Kümeleme bir yaklaşıklıktır.** Farklı gerçek durumlar aynı tablo hücresine düşer, bu yüzden Q değerleri bu durumların ortalama başarımını temsil eder.
 - **Simülasyon basitleştirilmiştir.** Fizik motoru yoktur; parçalar düz ve rijittir, kayma olasılığı analitik bir modelle verilir. Gerçek bir robota aktarım (sim-to-real) bu çalışmanın kapsamı dışındadır.
+- **Ardışık kararların etkisi zayıf.** γ = 0 ile γ = 0.5 aynı sonucu veriyor; ajanın başarısının çoğu, her adımda iyi bir tek kavrama seçmekten geliyor. Kararların gerçekten birbirine bağlı olduğu senaryolar (ör. parçaları itip dağıtmak) bu çalışmanın kapsamı dışında.
+- **Kâhine kalan pay:** parmaklıda 5, vakumda 9 puan. Kalan hatalar çoğunlukla kayma; daha ince yönelim ve konum bilgisi tabloyu hızla büyüttüğü için tablo yönteminin pratik sınırına yaklaşılıyor.
+- **Dur eyleminin bedeli:** vakumda ajan nadiren, alınabilir bir parça kalmışken durabiliyor. Bu yüzden boşaltma oranı dur eylemi olmayan sürüme göre biraz düşük (%89–90'a karşı %90.5).
+- **Ablasyonların çoğu tek tohumla** ölçüldü; 1–2 puanlık farklar tohum değişkenliği içinde kalabilir. Ana sonuçlar ve vakum ablasyonları 3 tohumla raporlandı.
 - **Derin RL ile karşılaştırma** yapılmadı. Ödev kapsamında bilinçli olarak klasik RL ile sınırlı kalındı.
 
 ## 8. Sonuç
 
-`<2-3 cümle: ne yapıldı, ne bulundu, ne öğrenildi.>`
+Bu çalışmada düzensiz kutudan parça alma problemi bir MDP olarak modellendi ve derin öğrenme kullanmadan, yükseklik haritasından çıkarılan ayrık özellikler üzerinde **tablo tabanlı Q-learning, SARSA ve Double Q-learning** ile çözüldü. Eğitimde görülmemiş 200 test kutusunda öğrenen ajan, parmaklı tutucuda **%91.5** başarı oranına ulaştı (elle yazılmış sezgisel kural %70.6, gizli bilgiyi bilen kâhin üst sınırı %96.6) ve hiç çarpışmadı. Vakumlu tutucuda **%85.1** başarı oranına ulaştı (sezgisel %70.2, kâhin %94.4). En önemli ders, tablo yöntemlerinde başarımın büyük ölçüde **durum tasarımına** bağlı olduğu oldu: kalan hataları teşhis edip kâhinle karşılaştırarak eklenen her özellik (yüzeyi kapatan parça, hizalama, robotun kendi hafızası) belirli bir hata türünü kapattı. Ablasyonlar da bu problemde ardışık kararların etkisinin zayıf olduğunu ve yüksek γ'da Double Q-learning'in aşırı iyimser tahmini düzelttiğini gösterdi.
 
 ---
 
