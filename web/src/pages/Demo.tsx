@@ -205,7 +205,7 @@ export default function Demo() {
               }} />
           ) : (
             <Empty title="Bu yöntem öğrenmiyor">
-              <p className="muted">Q-haritası yalnızca eğitilmiş Q-learning / SARSA ajanları için vardır. <a href="#/egitim">Eğitim</a> sayfasından bir ajan eğit.</p>
+              <p className="muted">Q-haritası yalnızca eğitilmiş Q-learning, SARSA ve Double Q ajanları için vardır. <a href="#/egitim">Eğitim</a> sayfasından bir ajan eğit.</p>
             </Empty>
           )}
         </div>

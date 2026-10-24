@@ -144,6 +144,7 @@ export interface Job {
 
 export interface RunSummary {
   name: string;
+  label: string;
   algo: string;
   gripper: GripperKind;
   episodes: number;

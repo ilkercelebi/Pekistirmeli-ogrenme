@@ -10,7 +10,7 @@ function QMapSection() {
   const methods = useMethods("parallel_jaw").filter((m) => m.learns);
   const [run, setRun] = useState<string | null>(null);
   useEffect(() => {
-    if (!run && methods.length) setRun(methods[methods.length - 1].id);
+    if (!run && methods.length) setRun(methods[0].id);
   }, [methods, run]);
   if (!methods.length || !run || !meta) {
     return (
@@ -22,10 +22,10 @@ function QMapSection() {
       </div>
     );
   }
-  return <QMapView run={run} runs={methods.map((m) => m.id)} onRun={setRun} />;
+  return <QMapView run={run} runs={methods.map((m) => ({ id: m.id, label: m.label }))} onRun={setRun} />;
 }
 
-function QMapView({ run, runs, onRun }: { run: string; runs: string[]; onRun: (r: string) => void }) {
+function QMapView({ run, runs, onRun }: { run: string; runs: { id: string; label: string }[]; onRun: (r: string) => void }) {
   const meta = useMeta("parallel_jaw");
   const sim = useSimulation("parallel_jaw", run, 11, false);
   const s = sim.session;
@@ -34,7 +34,7 @@ function QMapView({ run, runs, onRun }: { run: string; runs: string[]; onRun: (r
     <div className="stack">
       <div className="row">
         <select value={run} onChange={(e) => onRun(e.target.value)}>
-          {runs.map((r) => <option key={r} value={r}>{r}</option>)}
+          {runs.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
         </select>
         <button className="btn sm" onClick={() => sim.reset((s.seed ?? 0) + 1)}>Başka kutu</button>
       </div>
@@ -188,6 +188,13 @@ export default function Method() {
           <TeX>{"Q[\\phi(s,a)] \\leftarrow Q[\\phi(s,a)] + \\alpha\\Big(r + \\gamma \\max_{a'} Q[\\phi(s',a')] - Q[\\phi(s,a)]\\Big)"}</TeX>
           <div className="card-k" style={{ color: C.info, marginTop: 8 }}>SARSA (on-policy)</div>
           <TeX>{"Q[\\phi(s,a)] \\leftarrow Q[\\phi(s,a)] + \\alpha\\Big(r + \\gamma\\, Q[\\phi(s',a')] - Q[\\phi(s,a)]\\Big)"}</TeX>
+          <div className="card-k" style={{ color: C.success, marginTop: 8 }}>Double Q-learning (iki tablo)</div>
+          <TeX>{"Q_A[\\phi(s,a)] \\leftarrow Q_A[\\phi(s,a)] + \\alpha\\Big(r + \\gamma\\, Q_B[\\phi(s',a^*)] - Q_A[\\phi(s,a)]\\Big)"}</TeX>
+          <TeX>{"a^* = \\arg\\max_{a'} Q_A[\\phi(s',a')]"}</TeX>
+          <p className="muted" style={{ margin: 0 }}>
+            Her adımda A ile B rastgele yer değiştirir. Eylemi bir tablo seçer, değerini öbürü okur; böylece tek tablodaki
+            <i> max</i> işleminin aşırı iyimserliği azalır. Ajan iki tablonun ortalamasıyla karar verir.
+          </p>
         </div>
         <div className="grid g2">
           <Card title="Keşif: ε-açgözlü">

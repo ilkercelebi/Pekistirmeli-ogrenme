@@ -22,8 +22,10 @@ export default function Compare() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // eğitilmiş ajanlar varsa varsayılan olarak seçili gelsin
-    setSelected(["random", "heuristic", ...methods.filter((m) => m.learns).map((m) => m.id)]);
+    // eğitilmiş ajanlar varsa varsayılan olarak seçili gelsin (çok tohumlu deneyde her algoritmanın tohum 0'ı)
+    const learners = methods.filter((m) => m.learns).map((m) => m.id);
+    const firstSeeds = learners.filter((id) => id.endsWith("_s0"));
+    setSelected(["random", "heuristic", ...(firstSeeds.length ? firstSeeds : learners)]);
     setResults(null);
   }, [methods]);
 

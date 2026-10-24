@@ -90,7 +90,7 @@ export default function Intro() {
           sinir ağı kullanmayan, tablo tabanlı bir pekiştirmeli öğrenme ajanını adım adım anlatıyor.
         </p>
         <div className="row" style={{ marginTop: 20 }}>
-          <Chip color={C.accent}>Q-learning · SARSA</Chip>
+          <Chip color={C.accent}>Q-learning · SARSA · Double Q</Chip>
           <Chip color={C.info}>Derinlik kamerası → yükseklik haritası</Chip>
           <Chip color={C.success}>Derin öğrenme yok</Chip>
         </div>

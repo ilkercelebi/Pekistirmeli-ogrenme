@@ -49,7 +49,7 @@ function TrainForm({ onFinished }: { onFinished: () => void }) {
       <div className="card stack" style={{ gap: 14 }}>
         <Field label="Algoritma">
           <Seg value={algo} onChange={setAlgo} disabled={running}
-            options={[{ value: "q_learning", label: "Q-learning" }, { value: "sarsa", label: "SARSA" }]} />
+            options={[{ value: "q_learning", label: "Q-learning" }, { value: "sarsa", label: "SARSA" }, { value: "double_q", label: "Double Q" }]} />
         </Field>
         <Field label="Tutucu">
           <Seg value={gripper} onChange={setGripper} disabled={running}
@@ -211,9 +211,9 @@ export default function Training() {
               <button key={r.name} className="card tight" onClick={() => setSel(r.name)}
                 style={{ textAlign: "left", cursor: "pointer", borderColor: sel === r.name ? C.accent : undefined }}>
                 <div className="card-k" style={{ color: sel === r.name ? C.accent : C.muted }}>
-                  {r.algo === "sarsa" ? "SARSA" : "Q-learning"} · {r.gripper === "vacuum" ? "vakumlu" : "parmaklı"}
+                  {r.gripper === "vacuum" ? "Vakumlu" : "Parmaklı"}
                 </div>
-                <h3 style={{ wordBreak: "break-all" }}>{r.name}</h3>
+                <h3>{r.label}</h3>
                 <p>{r.episodes.toLocaleString("tr-TR")} bölüm · test başarısı <b>{pct(r.last_eval?.success_rate)}</b></p>
               </button>
             ))}

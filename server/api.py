@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import threading
 import time
 import uuid
@@ -36,6 +37,7 @@ WEB_DIST = ROOT / "web" / "dist"
 app = FastAPI(title="Bin Picking RL")
 
 BASELINES = {"random": "Rastgele", "heuristic": "Sezgisel"}
+ALGO_LABELS = {"q_learning": "Q-learning", "sarsa": "SARSA", "double_q": "Double Q-learning"}
 
 
 # ------------------------------------------------------------------ yardımcılar
@@ -52,9 +54,24 @@ def gripper_kind_of_run(run: Path) -> str:
 
 
 def list_runs() -> list[Path]:
+    """Kayıtlı eğitimler: önce algoritma sırası (Q-learning, SARSA, Double Q), sonra ad."""
     if not RESULTS.exists():
         return []
-    return sorted(p for p in RESULTS.iterdir() if (p / "agent.npz").exists() and (p / "config.json").exists())
+    runs = [p for p in RESULTS.iterdir() if (p / "agent.npz").exists() and (p / "config.json").exists()]
+    order = list(ALGO_LABELS)
+
+    def key(p: Path):
+        algo = json.loads((p / "config.json").read_text())["agent"]["algo"]
+        return (order.index(algo) if algo in order else len(order), p.name)
+
+    return sorted(runs, key=key)
+
+
+def run_label(name: str, algo: str) -> str:
+    """'q_learning_parallel_jaw_s1' → 'Q-learning · tohum 1'; diğer adlar algoritma etiketiyle birlikte."""
+    label = ALGO_LABELS.get(algo, algo)
+    m = re.fullmatch(rf"{algo}_(parallel_jaw|vacuum)_s(\d+)", name)
+    return f"{label} · tohum {m.group(2)}" if m else f"{label} · {name}"
 
 
 def make_method(method: str, gripper: str, seed: int = 0):
@@ -69,7 +86,12 @@ def make_method(method: str, gripper: str, seed: int = 0):
 
 
 def method_label(method: str) -> str:
-    return BASELINES.get(method, method)
+    if method in BASELINES:
+        return BASELINES[method]
+    cfg = RESULTS / method / "config.json"
+    if not cfg.exists():
+        return method
+    return run_label(method, json.loads(cfg.read_text())["agent"]["algo"])
 
 
 def parts_json(env) -> list[dict]:
@@ -195,7 +217,7 @@ def methods(gripper: str = "parallel_jaw"):
     out = [{"id": k, "label": v, "learns": False} for k, v in BASELINES.items()]
     for run in list_runs():
         if gripper_kind_of_run(run) == gripper:
-            out.append({"id": run.name, "label": run.name, "learns": True})
+            out.append({"id": run.name, "label": method_label(run.name), "learns": True})
     return out
 
 
@@ -395,7 +417,7 @@ def _run_job(job: Job, cfg):
 def start_train(body: TrainIn):
     if any(j.status == "running" for j in JOBS.values()):
         raise HTTPException(409, "Zaten çalışan bir eğitim var.")
-    if body.algo not in ("q_learning", "sarsa") or body.gripper not in ("parallel_jaw", "vacuum"):
+    if body.algo not in ALGO_LABELS or body.gripper not in ("parallel_jaw", "vacuum"):
         raise HTTPException(400, "Geçersiz parametre")
     cfg = ExperimentConfig()
     cfg.gripper.kind = body.gripper
@@ -452,7 +474,8 @@ def runs(gripper: str | None = None):
             continue
         ev = _read_csv(run / "eval.csv")
         n = sum(1 for _ in open(run / "metrics.csv")) - 1 if (run / "metrics.csv").exists() else 0
-        out.append({"name": run.name, "algo": cfg["agent"]["algo"], "gripper": cfg["gripper"]["kind"],
+        out.append({"name": run.name, "label": run_label(run.name, cfg["agent"]["algo"]),
+                    "algo": cfg["agent"]["algo"], "gripper": cfg["gripper"]["kind"],
                     "episodes": n, "last_eval": ev[-1] if ev else None})
     return out
 

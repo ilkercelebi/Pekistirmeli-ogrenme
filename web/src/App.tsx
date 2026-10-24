@@ -40,7 +40,7 @@ export default function App() {
           ))}
         </nav>
         <div className="side-foot">
-          <b>Tablo tabanlı pekiştirmeli öğrenme.</b> Q-learning ve SARSA; sinir ağı yok.
+          <b>Tablo tabanlı pekiştirmeli öğrenme.</b> Q-learning, SARSA ve Double Q-learning; sinir ağı yok.
           Simülasyon Python'da çalışır, arayüz React + Three.js.
         </div>
       </aside>
