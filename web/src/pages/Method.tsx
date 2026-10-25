@@ -92,8 +92,8 @@ export default function Method() {
   return (
     <div>
       <PageHead kicker="Adım 3 · Tablo tabanlı pekiştirmeli öğrenme" title="Yöntem">
-        Ödevde önerilen yöntem, görüntüden piksel bazlı Q-haritası üreten bir derin ağdır (FCN-DQN). Biz bilinçli olarak
-        <b> klasik pekiştirmeli öğrenme</b> kullandık: Q değerleri bir sinir ağında değil, birkaç yüz hücrelik okunabilir
+        Literatürde piksel bazlı Q-haritası genellikle derin bir ağla (FCN-DQN) üretilir. Biz <b>klasik pekiştirmeli
+        öğrenme</b> kullandık: Q değerleri bir sinir ağında değil, birkaç yüz hücrelik okunabilir
         bir <b>tabloda</b> tutulur.
       </PageHead>
 
@@ -213,7 +213,7 @@ export default function Method() {
       </div>
 
       <Section num="5" title="Sonuç: tablo değerlerinden Q-haritası">
-        Her pikselde, tüm açılar için tablo değerinin en büyüğü alınınca ödevdeki "piksel bazlı Q-haritası" derin öğrenme
+        Her pikselde, tüm açılar için tablo değerinin en büyüğü alınınca literatürdeki "piksel bazlı Q-haritası" derin öğrenme
         olmadan elde edilir. Ajan her adımda bu haritanın en yeşil noktasını seçer.
       </Section>
       <QMapSection />

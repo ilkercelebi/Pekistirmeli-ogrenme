@@ -11,7 +11,7 @@
 
 Endüstriyel bin picking problemlerinde robot, kutuya rastgele yığılmış parçaları tek tek almalıdır. Yanlış seçilen bir kavrama noktası tutucunun kutu duvarına çarpmasına ya da parçanın tutucudan kayıp düşmesine yol açar. Bu çalışmada problem bir Markov Karar Süreci (MDP) olarak modellendi. Durum, derinlik kamerasından alınan yükseklik haritasıdır; eylem, görüntü koordinatlarındaki kavrama noktası $(x, y)$ ile bilek açısı $\theta$'dır. Ödüller ödev tanımındaki gibidir: başarılı alma $+1$, çarpışma $-1$, başarısız kavrama $-0.2$.
 
-Ödevde önerilen tam evrişimli DQN yerine **derin öğrenme kullanmayan, tablo tabanlı** bir yaklaşım geliştirildi. Her aday kavrama eylemi, yükseklik haritasından ve robotun kendi hafızasından çıkarılan 7–10 ayrık özelliğe indirgendi (durum-eylem kümeleme). **Q-learning**, **SARSA** ve **Double Q-learning**, sinir ağı olmadan bir Q tablosu öğrenir (parmaklıda 38.880, vakumda 3.456 hücre). Robot, kutuda alınabilir parça kalmadığına karar verince **durabilir**. Tablo değerleri görüntünün her pikseline yerleştirilerek ödevdeki "piksel bazlı Q-haritası" fikri derin öğrenme olmadan elde edildi. Yöntemler, kendi yazdığımız 2.5 boyutlu bir kutu simülasyonunda rastgele seçim, elle yazılmış bir sezgisel kural ve gizli bilgiyi bilen bir **kâhin** (üst sınır) ile karşılaştırıldı. Özellikler, kalan hatalar teşhis edilip kâhinle karşılaştırılarak adım adım seçildi (bölüm 4.1.1).
+Problem, **derin öğrenme kullanmadan, tablo tabanlı** pekiştirmeli öğrenmeyle çözüldü. Her aday kavrama eylemi, yükseklik haritasından ve robotun kendi hafızasından çıkarılan 7–10 ayrık özelliğe indirgendi (durum-eylem kümeleme). **Q-learning**, **SARSA** ve **Double Q-learning**, sinir ağı olmadan bir Q tablosu öğrenir (parmaklıda 38.880, vakumda 3.456 hücre). Robot, kutuda alınabilir parça kalmadığına karar verince **durabilir**. Tablo değerleri görüntünün her pikseline yerleştirilerek literatürdeki "piksel bazlı Q-haritası" fikri derin öğrenme olmadan elde edildi. Yöntemler, kendi yazdığımız 2.5 boyutlu bir kutu simülasyonunda rastgele seçim, elle yazılmış bir sezgisel kural ve gizli bilgiyi bilen bir **kâhin** (üst sınır) ile karşılaştırıldı. Özellikler, kalan hatalar teşhis edilip kâhinle karşılaştırılarak adım adım seçildi (bölüm 4.1.1).
 
 <!-- OZET:BASLA (run_experiments.py doldurur) -->
 **Ana bulgu:** Parmaklı tutucu ile Q-learning, eğitimde görülmemiş test kutularında **%91.5** başarı oranına ulaştı ve en yüksek nokta sezgiselini (%70.6) 20.9 puan farkla geçti; çarpışma oranı %0.0, kutunun %99.8'i boşaltıldı. Rastgele seçimde başarı %3.3, çarpışma %32.4. Gizli bilgiyi bilen kâhin politika %96.6 başarıya ulaşıyor; öğrenen ajan bu üst sınırın **%95**'ine erişti.
@@ -35,7 +35,7 @@ Bu kararı elle yazılmış kurallarla vermek zordur, çünkü parçaların şek
 
 ### Neden derin pekiştirmeli öğrenme değil?
 
-Literatürdeki yaygın çözüm, görüntüden doğrudan piksel bazlı Q-haritası üreten tam evrişimli ağlardır (ör. Zeng vd., 2018). Bu çalışmada bilinçli olarak **klasik (tablo tabanlı) pekiştirmeli öğrenme** kullanıldı:
+Literatürdeki yaygın çözüm, görüntüden doğrudan piksel bazlı Q-haritası üreten tam evrişimli ağlardır (ör. Zeng vd., 2018). Bu çalışmada dersin kapsamına uygun olarak **klasik (tablo tabanlı) pekiştirmeli öğrenme** kullanıldı:
 
 - Öğrenilen model **tamamen yorumlanabilir**: her tablo hücresi "yüksek, düz, duvardan uzak, parmaklar boşta…" gibi okunabilir bir durumu temsil eder.
 - GPU gerekmez; eğitim dizüstü bilgisayarda dakikalar sürer.
@@ -308,7 +308,7 @@ Yüzey bilgisinin etkisi (başarı oranı, puan): sezgiselde **+1.9**, Q-learnin
 - **Kâhine kalan pay:** parmaklıda 5, vakumda 9 puan. Kalan hatalar çoğunlukla kayma; daha ince yönelim ve konum bilgisi tabloyu hızla büyüttüğü için tablo yönteminin pratik sınırına yaklaşılıyor.
 - **Dur eyleminin bedeli:** vakumda ajan nadiren, alınabilir bir parça kalmışken durabiliyor. Bu yüzden boşaltma oranı dur eylemi olmayan sürüme göre biraz düşük (%89–90'a karşı %90.5).
 - **Ablasyonların çoğu tek tohumla** ölçüldü; 1–2 puanlık farklar tohum değişkenliği içinde kalabilir. Ana sonuçlar ve vakum ablasyonları 3 tohumla raporlandı.
-- **Derin RL ile karşılaştırma** yapılmadı. Ödev kapsamında bilinçli olarak klasik RL ile sınırlı kalındı.
+- **Derin RL ile karşılaştırma** yapılmadı; çalışma dersin kapsamına uygun olarak klasik RL ile sınırlı tutuldu.
 
 ## 8. Sonuç
 
@@ -402,5 +402,5 @@ docs/            video senaryosu, sunum planı, README görselleri
 1. Sutton, R. S., & Barto, A. G. (2018). *Reinforcement Learning: An Introduction* (2. baskı). MIT Press. — Bölüm 6 (TD öğrenme, Q-learning, SARSA), Bölüm 9.5 (durum kümeleme).
 2. Watkins, C. J. C. H., & Dayan, P. (1992). Q-learning. *Machine Learning*, 8(3–4), 279–292.
 3. Rummery, G. A., & Niranjan, M. (1994). *On-line Q-learning using connectionist systems*. Cambridge University, Tech. Rep. CUED/F-INFENG/TR 166. (SARSA)
-4. Zeng, A., Song, S., Welker, S., Lee, J., Rodriguez, A., & Funkhouser, T. (2018). Learning synergies between pushing and grasping with self-supervised deep reinforcement learning. *IROS*. (Ödevde önerilen piksel bazlı Q-haritası yaklaşımı)
+4. Zeng, A., Song, S., Welker, S., Lee, J., Rodriguez, A., & Funkhouser, T. (2018). Learning synergies between pushing and grasping with self-supervised deep reinforcement learning. *IROS*. (Piksel bazlı Q-haritası yaklaşımı)
 5. Mahler, J., vd. (2017). Dex-Net 2.0: Deep learning to plan robust grasps with synthetic point clouds and analytic grasp metrics. *RSS*.

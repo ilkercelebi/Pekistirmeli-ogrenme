@@ -17,7 +17,6 @@ Not: Kısa bir kontrolde (400 bölüm) Q-learning, sezgisel yöntemi geçti (ba�
 - **Robot kol kullanılmayacak** → tamamen simülasyon.
 - **Sadece klasik pekiştirmeli öğrenme** (tablo tabanlı Q-learning / SARSA vb.).
   **Derin pekiştirmeli öğrenme (DQN, sinir ağı) kullanılmayacak.**
-  - Ödevde önerilen yöntem "Tam Evrişimli DQN (piksel bazlı Q-haritası)" ama biz bunu kullanmıyoruz.
 
 ## Ödevde istenenler (görselden)
 1. **Endüstriyel problem:** Kutuya rastgele yığılmış parçalar, vakumlu veya parmaklı tutucu ile alınırken
@@ -29,7 +28,6 @@ Not: Kısa bir kontrolde (400 bölüm) Q-learning, sezgisel yöntemi geçti (ba�
      - `+1` → parça kutuya çarpmadan ve düşmeden kaldırıldı
      - `-1` → tutucu kutuya çarptı
      - `-0.2` → kavrama başarısız
-3. **Önerilen yöntem:** Fully Convolutional Q-Network (pixel-wise Q-map) — *bizim için geçerli değil, bkz. Kararlar.*
 
 ## Klasik RL'e uyarlama fikri (taslak, sonra netleşecek)
 DQN olmadan büyük görüntü durumunu tabloya sığdırmak için **ayrıklaştırma** gerekecek:
@@ -57,6 +55,5 @@ DQN olmadan büyük görüntü durumunu tabloya sığdırmak için **ayrıklaşt
 | Grafik / analiz | Matplotlib |
 
 ## Açık sorular
-- Hoca DQN'i zorunlu tutuyor mu, yoksa klasik RL kabul ediliyor mu? (Biz klasik RL ile ilerliyoruz.)
 - Vakumlu mu parmaklı tutucu mu modellenecek?
 - Ortam ne kadar gerçekçi olmalı (2D ızgara yeterli mi)?
