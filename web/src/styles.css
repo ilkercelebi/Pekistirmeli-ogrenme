@@ -336,32 +336,33 @@ table.t th.num { text-align: right; }
 .splash.open .door.left { transform: translateX(-102%); }
 .splash.open .door.right { transform: translateX(102%); }
 
-/* robot kol anahtar kareleri (4 sn döngü): bekle → kutuya in → kavra → kaldır → tepsiye bırak */
+/* robot kol anahtar kareleri (tek seferlik, 3.2 sn): bekle → kutuya in → kavra → kaldır → tepsiye bırak.
+   Son karede kol parçayı bırakmış hâlde durur; animasyon bitince kapaklar açılır. */
 .arm-scene .sp-j1, .arm-scene .sp-j2, .arm-scene .sp-j3, .arm-scene .sp-finger {
-  transform-box: view-box; transform-origin: 0 0; animation-duration: 4s; animation-iteration-count: infinite;
+  transform-box: view-box; transform-origin: 0 0; animation-duration: 3.2s; animation-fill-mode: both;
   animation-timing-function: cubic-bezier(0.55, 0, 0.35, 1); }
 .arm-scene .sp-j1 { animation-name: sp-j1; }
 .arm-scene .sp-j2 { animation-name: sp-j2; }
 .arm-scene .sp-j3 { animation-name: sp-j3; }
 .arm-scene .sp-finger.top { animation-name: sp-ft; }
 .arm-scene .sp-finger.bottom { animation-name: sp-fb; }
-@keyframes sp-j1 { 0%, 100% { transform: rotate(-140.08deg); } 14% { transform: rotate(-62.47deg); } 24%, 30% { transform: rotate(-45.27deg); }
-  40% { transform: rotate(-62.47deg); } 62% { transform: rotate(-114.87deg); } 72%, 78% { transform: rotate(-129.92deg); } 88% { transform: rotate(-114.87deg); } }
-@keyframes sp-j2 { 0%, 100% { transform: rotate(111.33deg); } 14% { transform: rotate(109.18deg); } 24%, 30% { transform: rotate(111.06deg); }
-  40% { transform: rotate(109.18deg); } 62% { transform: rotate(-107.94deg); } 72%, 78% { transform: rotate(-111.33deg); } 88% { transform: rotate(-107.94deg); } }
-@keyframes sp-j3 { 0%, 100% { transform: rotate(118.75deg); } 14% { transform: rotate(43.29deg); } 24%, 30% { transform: rotate(24.21deg); }
-  40% { transform: rotate(43.29deg); } 62% { transform: rotate(-47.19deg); } 72%, 78% { transform: rotate(-28.75deg); } 88% { transform: rotate(-47.19deg); } }
-@keyframes sp-ft { 0%, 24% { transform: translateY(-24px); } 30%, 72% { transform: translateY(-16px); } 78%, 100% { transform: translateY(-24px); } }
-@keyframes sp-fb { 0%, 24% { transform: translateY(24px); } 30%, 72% { transform: translateY(16px); } 78%, 100% { transform: translateY(24px); } }
+@keyframes sp-j1 { 0% { transform: rotate(-140.08deg); } 18% { transform: rotate(-62.47deg); } 31%, 38% { transform: rotate(-45.27deg); }
+  51% { transform: rotate(-62.47deg); } 79% { transform: rotate(-114.87deg); } 92%, 100% { transform: rotate(-129.92deg); } }
+@keyframes sp-j2 { 0% { transform: rotate(111.33deg); } 18% { transform: rotate(109.18deg); } 31%, 38% { transform: rotate(111.06deg); }
+  51% { transform: rotate(109.18deg); } 79% { transform: rotate(-107.94deg); } 92%, 100% { transform: rotate(-111.33deg); } }
+@keyframes sp-j3 { 0% { transform: rotate(118.75deg); } 18% { transform: rotate(43.29deg); } 31%, 38% { transform: rotate(24.21deg); }
+  51% { transform: rotate(43.29deg); } 79% { transform: rotate(-47.19deg); } 92%, 100% { transform: rotate(-28.75deg); } }
+@keyframes sp-ft { 0%, 31% { transform: translateY(-24px); } 38%, 92% { transform: translateY(-16px); } 100% { transform: translateY(-24px); } }
+@keyframes sp-fb { 0%, 31% { transform: translateY(24px); } 38%, 92% { transform: translateY(16px); } 100% { transform: translateY(24px); } }
 .sp-part { fill: #ff7a1a; stroke: #ffb36b; stroke-width: 1; }
 .sp-part.dim { fill: #3a4654; stroke: #5d6873; }
-.sp-bin-part, .sp-held-part, .sp-tray-part { animation: 4s step-end infinite; }
+.sp-bin-part, .sp-held-part, .sp-tray-part { animation: 3.2s step-end both; }
 .sp-bin-part { animation-name: sp-bin; }
 .sp-held-part { animation-name: sp-held; }
 .sp-tray-part { animation-name: sp-tray; }
-@keyframes sp-bin { 0% { opacity: 1; } 29% { opacity: 0; } 100% { opacity: 0; } }
-@keyframes sp-held { 0% { opacity: 0; } 29% { opacity: 1; } 77% { opacity: 0; } }
-@keyframes sp-tray { 0% { opacity: 0; } 77% { opacity: 1; } 97% { opacity: 0; } }
+@keyframes sp-bin { 0% { opacity: 1; } 37% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes sp-held { 0% { opacity: 0; } 37% { opacity: 1; } 98% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes sp-tray { 0% { opacity: 0; } 98% { opacity: 1; } 100% { opacity: 1; } }
 .sp-grid line { stroke: #1c2530; stroke-width: 1; }
 .sp-cam circle { animation: blink 1.2s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0.25; } }

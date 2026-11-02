@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 type Phase = "pick" | "unlock" | "open";
 
-/** Kol parçayı tepsiye bıraktıktan sonra (4 sn döngünün %78'i) kapaklar açılır. */
-const PICK_MS = 3300;
+/** Kol parçayı tepsiye bırakınca (animationend) kapaklar açılır; animasyon gelmezse yedek süre. */
+const FALLBACK_MS = 4500;
 
 export default function Splash({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<Phase>("pick");
@@ -20,7 +20,7 @@ export default function Splash({ onDone }: { onDone: () => void }) {
   };
 
   useEffect(() => {
-    const t = setTimeout(enter, PICK_MS);
+    const t = setTimeout(enter, FALLBACK_MS);
     const key = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " " || e.key === "Escape") enter(); };
     window.addEventListener("keydown", key);
     return () => { clearTimeout(t); window.removeEventListener("keydown", key); };
@@ -34,7 +34,7 @@ export default function Splash({ onDone }: { onDone: () => void }) {
       <div className="lock" aria-hidden><div className="lock-ring" /><div className="lock-bar" /></div>
 
       <div className="splash-stage">
-        <ArmScene />
+        <ArmScene onPlaced={enter} />
       </div>
       <button className="splash-skip" onClick={enter}>Geç ⏎</button>
     </div>
@@ -52,10 +52,11 @@ function DoorFace({ side }: { side: "left" | "right" }) {
   );
 }
 
-/** Üç eklemli robot kol: kutudan parçayı alır, kaldırır ve tepsiye bırakır (CSS anahtar kareleri). */
-function ArmScene() {
+/** Üç eklemli robot kol: kutudan parçayı alır, kaldırır ve tepsiye bırakır (tek seferlik CSS anahtar kareleri). */
+function ArmScene({ onPlaced }: { onPlaced: () => void }) {
   return (
-    <svg className="arm-scene" viewBox="0 -30 600 450" aria-hidden>
+    <svg className="arm-scene" viewBox="0 -30 600 450" aria-hidden
+      onAnimationEnd={(e) => { if (e.animationName === "sp-j1") onPlaced(); }}>
       <defs>
         <linearGradient id="sp-metal" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#3a4654" />
