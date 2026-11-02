@@ -1,5 +1,5 @@
-// Açılış ekranı: robot kol kutudan parça alıp tepsiye bırakır; "Sisteme gir" ile kilit döner ve
-// iki çelik kapak mekanik olarak açılarak uygulamayı gösterir.
+// Açılış ekranı: robot kol kutudan parça alıp tepsiye bırakırken sistem satırları yüklenir; ardından
+// kilit kendiliğinden döner ve iki çelik kapak mekanik olarak açılarak uygulamayı gösterir.
 import { useEffect, useState } from "react";
 
 export const PROJECT_TITLE = "Düzensiz Kutulardan Parça Alma (Bin Picking) İçin Optimal Kavrama Seçimi";
@@ -11,7 +11,7 @@ const BOOT = [
   "Ajan hazır · Q-learning / SARSA / Double Q",
 ];
 
-type Phase = "boot" | "ready" | "unlock" | "open";
+type Phase = "boot" | "unlock" | "open";
 
 export default function Splash({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<Phase>("boot");
@@ -20,7 +20,7 @@ export default function Splash({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     if (phase !== "boot") return;
     if (lines >= BOOT.length) {
-      const t = setTimeout(() => setPhase("ready"), 350);
+      const t = setTimeout(enter, 900);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => setLines((n) => n + 1), lines === 0 ? 700 : 520);
@@ -56,9 +56,7 @@ export default function Splash({ onDone }: { onDone: () => void }) {
           <ul className="boot">
             {BOOT.slice(0, lines).map((l) => <li key={l}><span>OK</span>{l}</li>)}
           </ul>
-          <button className="btn primary splash-btn" onClick={enter} disabled={phase === "boot"}>
-            {phase === "boot" ? "Sistem başlatılıyor…" : "Sisteme gir"}
-          </button>
+          <div className="splash-progress"><span /></div>
         </div>
       </div>
       <button className="splash-skip" onClick={enter}>Geç ⏎</button>

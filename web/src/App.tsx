@@ -2,12 +2,6 @@ import { lazy, Suspense, useState } from "react";
 import Splash from "./components/Splash";
 import { useHash } from "./hooks";
 
-const INTRO_KEY = "binpick-intro-seen";
-
-function introSeen(): boolean {
-  try { return sessionStorage.getItem(INTRO_KEY) === "1"; } catch { return false; }
-}
-
 const Intro = lazy(() => import("./pages/Intro"));
 const Mdp = lazy(() => import("./pages/Mdp"));
 const Method = lazy(() => import("./pages/Method"));
@@ -28,14 +22,11 @@ export default function App() {
   const [hash] = useHash();
   const page = PAGES.find((p) => p.id === hash) ?? PAGES[0];
   const Comp = page.Comp;
-  const [intro, setIntro] = useState(() => !introSeen());
-  const closeIntro = () => {
-    try { sessionStorage.setItem(INTRO_KEY, "1"); } catch { /* depolama kapalı olabilir */ }
-    setIntro(false);
-  };
+  // açılış her sayfa yüklemesinde kendiliğinden oynar
+  const [intro, setIntro] = useState(true);
   return (
     <div className="shell">
-      {intro && <Splash onDone={closeIntro} />}
+      {intro && <Splash onDone={() => setIntro(false)} />}
       <aside className="side">
         <div className="brand">
           <div className="brand-mark">Q</div>
