@@ -2,7 +2,7 @@
 
 Slaytlar hazır (konuşmacı notlarıyla). Akış:
 
-1. **Kapak:** Ödev 8, ad, öğrenci no, ders.
+1. **Kapak:** Düzensiz Kutulardan Parça Alma (Bin Picking) İçin Optimal Kavrama Seçimi; ad, öğrenci no, ders.
 2. **Endüstriyel problem:** üç hata türü (çarpışma −1, başarısız kavrama −0.2, kayıp düşme −0.2).
 3. **MDP tasarımı:** durum = 44 × 44 yükseklik haritası + robot hafızası; eylem = $(x, y, \theta)$ + dur; ödül tablosu.
 4. **Simülasyon:** 2.5B kutu, parmaklı (9 cm) ve vakumlu (1.5 cm) tutucu, sonuç kuralları.

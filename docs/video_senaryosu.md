@@ -23,7 +23,7 @@ Sayılar README'deki son deneyden (3 tohum × 3.000 bölüm, eğitimde görülme
 ## Anlatım metni
 
 **0:00 — Giriş.**
-Merhaba. Bu videoda Ödev 8'i anlatıyorum: bin picking, yani bir robotun kutuya rastgele dökülmüş parçaları tek tek alması. Robot her seferinde şuna karar vermeli: parçayı hangi noktadan ve hangi açıyla tutacak? Bu problemi derin öğrenme kullanmadan, klasik, tablo tabanlı pekiştirmeli öğrenmeyle çözdük.
+Merhaba. Bu videoda “Düzensiz Kutulardan Parça Alma (Bin Picking) İçin Optimal Kavrama Seçimi” projemizi anlatıyorum: bin picking, yani bir robotun kutuya rastgele dökülmüş parçaları tek tek alması. Robot her seferinde şuna karar vermeli: parçayı hangi noktadan ve hangi açıyla tutacak? Bu problemi derin öğrenme kullanmadan, klasik, tablo tabanlı pekiştirmeli öğrenmeyle çözdük.
 
 **0:20 — Problem senaryoları.**
 Robot hücresinde bir kutu, üstte bir gantry robot ve derinlik kamerası var. İlk senaryo doğru bir kavrama: parmaklar parçanın kısa kenarından sıkıyor ve parça tepsiye gidiyor. İkincisinde parça duvarın dibinde; bu açıyla parmak duvarın üstüne iniyor: çarpışma, en pahalı hata. Üçüncüsünde parça tutuluyor ama yanlış açıyla tutulduğu için kalkarken kayıyor. Dördüncüsünde parçanın üstünde başka bir parça var; robot onu çekip çıkaramıyor.

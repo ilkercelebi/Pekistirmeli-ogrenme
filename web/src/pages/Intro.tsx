@@ -82,8 +82,9 @@ export default function Intro() {
   return (
     <div>
       <section className="hero fade-in">
-        <div className="kicker">Ödev 8 · Pekiştirmeli öğrenme</div>
-        <h1>Düzensiz kutudan parça alma:<br />nereden ve hangi açıyla tutmalı?</h1>
+        <div className="kicker">Pekiştirmeli öğrenme · Bin picking</div>
+        <h1>Düzensiz Kutulardan Parça Alma (Bin Picking) İçin Optimal Kavrama Seçimi</h1>
+        <h2 className="hero-q">Robot parçayı nereden ve hangi açıyla tutmalı?</h2>
         <p className="lead">
           Robot, kutuya rastgele yığılmış parçaları tek tek almak zorunda. Yanlış seçilen bir nokta tutucuyu kutu duvarına
           çarptırır ya da parçayı düşürür. Bu uygulama, doğru kararı <b style={{ color: C.text }}>deneme-yanılma ile öğrenen</b>,
