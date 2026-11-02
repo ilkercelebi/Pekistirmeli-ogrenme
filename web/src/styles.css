@@ -283,7 +283,7 @@ table.t th.num { text-align: right; }
     repeating-linear-gradient(90deg, rgba(255,255,255,0.018) 0 2px, transparent 2px 5px),
     linear-gradient(180deg, #1b232d 0%, #121820 55%, #0d1218 100%);
   box-shadow: inset 0 0 120px rgba(0,0,0,0.6);
-  transition: transform 1.15s cubic-bezier(0.72, 0, 0.18, 1);
+  transition: transform 1.05s cubic-bezier(0.65, 0, 0.25, 1);
 }
 .door.left { left: 0; border-right: 1px solid #000; }
 .door.right { right: 0; border-left: 1px solid #000; }
@@ -293,7 +293,6 @@ table.t th.num { text-align: right; }
 }
 .door-stripe { position: absolute; top: 0; bottom: 0; width: 26px;
   background: repeating-linear-gradient(-45deg, #ff7a1a 0 16px, #14100c 16px 32px); opacity: 0.18; transition: opacity 0.3s; }
-.splash.unlock .door-stripe, .splash.open .door-stripe { opacity: 0.9; }
 .door-stripe.left { right: 0; }
 .door-stripe.right { left: 0; background: repeating-linear-gradient(45deg, #ff7a1a 0 16px, #14100c 16px 32px); }
 .door-rivets { position: absolute; inset: 22px;
@@ -304,14 +303,6 @@ table.t th.num { text-align: right; }
 .door-label { position: absolute; bottom: 9%; left: 50%; transform: translateX(-50%);
   font: 700 13px var(--mono); letter-spacing: 0.4em; color: #3c4855; }
 
-.lock { position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px 0 0 -66px;
-  opacity: 0; transition: opacity 0.25s, transform 0.5s; z-index: 2; }
-.lock-ring { position: absolute; inset: 0; border-radius: 50%;
-  border: 10px solid #2e3a4a; outline: 3px dashed #ff7a1a; outline-offset: -26px;
-  background: radial-gradient(circle, #1b232d 55%, #0d1218); box-shadow: 0 0 40px rgba(255,122,26,0.25); }
-.lock-bar { position: absolute; left: -40px; right: -40px; top: 50%; height: 14px; margin-top: -7px;
-  background: linear-gradient(180deg, #9aa6b2, #4a5a6c); border-radius: 4px; }
-
 .splash-stage {
   position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: 4vh 4vw;
   background: radial-gradient(ellipse at 50% 55%, rgba(10,13,17,0.45), rgba(10,13,17,0.92) 70%);
@@ -321,18 +312,10 @@ table.t th.num { text-align: right; }
 .splash-skip { position: absolute; right: 22px; bottom: 18px; z-index: 4; background: none; border: 0;
   color: var(--dim); font: 12px var(--mono); cursor: pointer; }
 
-/* kilit açılır, kapaklar sarsılıp yana kayar */
-.splash.unlock .splash-stage, .splash.open .splash-stage { opacity: 0; transform: scale(0.97); pointer-events: none; }
-.splash.unlock .splash-skip, .splash.open .splash-skip { opacity: 0; }
-.splash.unlock .lock { opacity: 1; }
-.splash.unlock .lock-ring { animation: lock-turn 0.6s cubic-bezier(0.6, 0, 0.3, 1) both 0.1s; }
-.splash.unlock .lock-bar { animation: lock-turn 0.6s cubic-bezier(0.6, 0, 0.3, 1) both 0.1s; }
-.splash.unlock .door.left { animation: jolt-l 0.25s ease 0.5s both; }
-.splash.unlock .door.right { animation: jolt-r 0.25s ease 0.5s both; }
-@keyframes lock-turn { from { transform: rotate(0); } to { transform: rotate(90deg); } }
-@keyframes jolt-l { 50% { transform: translateX(5px); } 100% { transform: translateX(-3px); } }
-@keyframes jolt-r { 50% { transform: translateX(-5px); } 100% { transform: translateX(3px); } }
-.splash.open .lock { opacity: 0; transform: scale(1.3) rotate(90deg); }
+/* parça bırakılınca kapaklar sağa ve sola kayar */
+.splash.open .splash-stage { opacity: 0; transform: scale(0.97); pointer-events: none; }
+.splash.open .splash-skip { opacity: 0; }
+.splash.open .door-stripe { opacity: 0.9; }
 .splash.open .door.left { transform: translateX(-102%); }
 .splash.open .door.right { transform: translateX(102%); }
 

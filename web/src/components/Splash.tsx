@@ -1,8 +1,8 @@
-// Açılış ekranı: ortada büyük robot kol kutudan parça alıp tepsiye bırakır; ardından kilit kendiliğinden
-// döner ve iki çelik kapak mekanik olarak açılarak uygulamayı gösterir.
+// Açılış ekranı: ortada büyük robot kol kutudan parça alıp tepsiye bırakır; bırakır bırakmaz iki çelik
+// kapak sağa ve sola kayarak uygulamayı gösterir.
 import { useEffect, useRef, useState } from "react";
 
-type Phase = "pick" | "unlock" | "open";
+type Phase = "pick" | "open";
 
 /** Kol parçayı tepsiye bırakınca (animationend) kapaklar açılır; animasyon gelmezse yedek süre. */
 const FALLBACK_MS = 4500;
@@ -14,9 +14,8 @@ export default function Splash({ onDone }: { onDone: () => void }) {
   const enter = () => {
     if (started.current) return;
     started.current = true;
-    setPhase("unlock");
-    setTimeout(() => setPhase("open"), 750);
-    setTimeout(onDone, 2100);
+    setPhase("open");
+    setTimeout(onDone, 1300);
   };
 
   useEffect(() => {
@@ -31,7 +30,6 @@ export default function Splash({ onDone }: { onDone: () => void }) {
     <div className={`splash ${phase}`} role="dialog" aria-label="Açılış">
       <div className="door left"><DoorFace side="left" /></div>
       <div className="door right"><DoorFace side="right" /></div>
-      <div className="lock" aria-hidden><div className="lock-ring" /><div className="lock-bar" /></div>
 
       <div className="splash-stage">
         <ArmScene onPlaced={enter} />
