@@ -313,21 +313,11 @@ table.t th.num { text-align: right; }
   background: linear-gradient(180deg, #9aa6b2, #4a5a6c); border-radius: 4px; }
 
 .splash-stage {
-  position: absolute; inset: 0; z-index: 3; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  align-items: center; gap: 40px; padding: 6vh 6vw;
-  background: radial-gradient(ellipse at 40% 50%, rgba(10,13,17,0.55), rgba(10,13,17,0.92) 75%);
+  position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: 4vh 4vw;
+  background: radial-gradient(ellipse at 50% 55%, rgba(10,13,17,0.45), rgba(10,13,17,0.92) 70%);
   transition: opacity 0.35s, transform 0.35s;
 }
-.arm-scene { width: 100%; max-height: 78vh; }
-.splash-text h1 { font-size: clamp(28px, 3.2vw, 46px); font-weight: 800; line-height: 1.08; margin: 14px 0 12px; }
-.splash-text > p { color: var(--muted); font-size: 17px; }
-.boot { list-style: none; padding: 0; margin: 22px 0 26px; min-height: 120px; font: 13px/1.9 var(--mono); color: var(--muted); }
-.boot li { animation: fade 0.3s ease both; }
-.boot li span { color: var(--success); font-weight: 700; margin-right: 10px; }
-.splash-progress { height: 4px; max-width: 420px; border-radius: 4px; background: #1c2530; overflow: hidden; }
-.splash-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #ffb36b);
-  animation: boot-fill 3.4s cubic-bezier(0.3, 0, 0.2, 1) both; }
-@keyframes boot-fill { from { width: 0; } to { width: 100%; } }
+.arm-scene { width: min(1150px, 92vw); max-height: 86vh; }
 .splash-skip { position: absolute; right: 22px; bottom: 18px; z-index: 4; background: none; border: 0;
   color: var(--dim); font: 12px var(--mono); cursor: pointer; }
 
@@ -346,9 +336,9 @@ table.t th.num { text-align: right; }
 .splash.open .door.left { transform: translateX(-102%); }
 .splash.open .door.right { transform: translateX(102%); }
 
-/* robot kol anahtar kareleri (6 sn döngü): bekle → kutuya in → kavra → kaldır → tepsiye bırak */
+/* robot kol anahtar kareleri (4 sn döngü): bekle → kutuya in → kavra → kaldır → tepsiye bırak */
 .arm-scene .sp-j1, .arm-scene .sp-j2, .arm-scene .sp-j3, .arm-scene .sp-finger {
-  transform-box: view-box; transform-origin: 0 0; animation-duration: 6s; animation-iteration-count: infinite;
+  transform-box: view-box; transform-origin: 0 0; animation-duration: 4s; animation-iteration-count: infinite;
   animation-timing-function: cubic-bezier(0.55, 0, 0.35, 1); }
 .arm-scene .sp-j1 { animation-name: sp-j1; }
 .arm-scene .sp-j2 { animation-name: sp-j2; }
@@ -365,7 +355,7 @@ table.t th.num { text-align: right; }
 @keyframes sp-fb { 0%, 24% { transform: translateY(24px); } 30%, 72% { transform: translateY(16px); } 78%, 100% { transform: translateY(24px); } }
 .sp-part { fill: #ff7a1a; stroke: #ffb36b; stroke-width: 1; }
 .sp-part.dim { fill: #3a4654; stroke: #5d6873; }
-.sp-bin-part, .sp-held-part, .sp-tray-part { animation: 6s step-end infinite; }
+.sp-bin-part, .sp-held-part, .sp-tray-part { animation: 4s step-end infinite; }
 .sp-bin-part { animation-name: sp-bin; }
 .sp-held-part { animation-name: sp-held; }
 .sp-tray-part { animation-name: sp-tray; }
@@ -377,9 +367,7 @@ table.t th.num { text-align: right; }
 @keyframes blink { 50% { opacity: 0.25; } }
 
 @media (max-width: 900px) {
-  .splash-stage { grid-template-columns: 1fr; gap: 10px; padding: 24px 20px; align-content: center; }
-  .arm-scene { max-height: 34vh; }
-  .boot { min-height: 0; margin: 14px 0 18px; }
+  .arm-scene { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .arm-scene * { animation: none !important; }

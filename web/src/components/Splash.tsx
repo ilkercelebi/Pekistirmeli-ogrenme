@@ -1,45 +1,31 @@
-// Açılış ekranı: robot kol kutudan parça alıp tepsiye bırakırken sistem satırları yüklenir; ardından
-// kilit kendiliğinden döner ve iki çelik kapak mekanik olarak açılarak uygulamayı gösterir.
-import { useEffect, useState } from "react";
+// Açılış ekranı: ortada büyük robot kol kutudan parça alıp tepsiye bırakır; ardından kilit kendiliğinden
+// döner ve iki çelik kapak mekanik olarak açılarak uygulamayı gösterir.
+import { useEffect, useRef, useState } from "react";
 
-export const PROJECT_TITLE = "Düzensiz Kutulardan Parça Alma (Bin Picking) İçin Optimal Kavrama Seçimi";
+type Phase = "pick" | "unlock" | "open";
 
-const BOOT = [
-  "Derinlik kamerası · 44 × 44 yükseklik haritası",
-  "Q tablosu yüklendi · 38.880 hücre",
-  "Tutucular · parmaklı + vakumlu",
-  "Ajan hazır · Q-learning / SARSA / Double Q",
-];
-
-type Phase = "boot" | "unlock" | "open";
+/** Kol parçayı tepsiye bıraktıktan sonra (4 sn döngünün %78'i) kapaklar açılır. */
+const PICK_MS = 3300;
 
 export default function Splash({ onDone }: { onDone: () => void }) {
-  const [phase, setPhase] = useState<Phase>("boot");
-  const [lines, setLines] = useState(0);
-
-  useEffect(() => {
-    if (phase !== "boot") return;
-    if (lines >= BOOT.length) {
-      const t = setTimeout(enter, 900);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => setLines((n) => n + 1), lines === 0 ? 700 : 520);
-    return () => clearTimeout(t);
-  }, [phase, lines]);
+  const [phase, setPhase] = useState<Phase>("pick");
+  const started = useRef(false);
 
   const enter = () => {
-    if (phase === "unlock" || phase === "open") return;
-    setLines(BOOT.length);
+    if (started.current) return;
+    started.current = true;
     setPhase("unlock");
     setTimeout(() => setPhase("open"), 750);
     setTimeout(onDone, 2100);
   };
 
   useEffect(() => {
+    const t = setTimeout(enter, PICK_MS);
     const key = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " " || e.key === "Escape") enter(); };
     window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  });
+    return () => { clearTimeout(t); window.removeEventListener("keydown", key); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className={`splash ${phase}`} role="dialog" aria-label="Açılış">
@@ -49,15 +35,6 @@ export default function Splash({ onDone }: { onDone: () => void }) {
 
       <div className="splash-stage">
         <ArmScene />
-        <div className="splash-text">
-          <div className="kicker">Pekiştirmeli öğrenme · Robot hücresi</div>
-          <h1>{PROJECT_TITLE}</h1>
-          <p>Derin öğrenme kullanmadan, tablo tabanlı pekiştirmeli öğrenmeyle</p>
-          <ul className="boot">
-            {BOOT.slice(0, lines).map((l) => <li key={l}><span>OK</span>{l}</li>)}
-          </ul>
-          <div className="splash-progress"><span /></div>
-        </div>
       </div>
       <button className="splash-skip" onClick={enter}>Geç ⏎</button>
     </div>
