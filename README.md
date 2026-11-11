@@ -1,7 +1,7 @@
 # Düzensiz Kutulardan Parça Alma (Bin Picking) İçin Tablo Tabanlı Pekiştirmeli Öğrenme ile Optimal Kavrama Seçimi
 
 **Ödev 8 · Pekiştirmeli Öğrenme**
-`<Ad Soyad · Öğrenci No · Ders / Dönem>`
+`<İlker Çelebi · 26472628010 · Derin Pekiştirmeli Öğrenme >`
 
 > 🎥 Video: `<YOUTUBE_LINKI>` · 💻 Kod: bu depo · 🖥️ Arayüz: `python serve.py` → http://localhost:8000
 
