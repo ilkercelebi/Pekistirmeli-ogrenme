@@ -1,9 +1,10 @@
 # Düzensiz Kutulardan Parça Alma (Bin Picking) İçin Tablo Tabanlı Pekiştirmeli Öğrenme ile Optimal Kavrama Seçimi
 
-**Pekiştirmeli Öğrenme**
-`<Ad Soyad · Öğrenci No · Ders / Dönem>`
+**İlker Çelebi** · 26472628010 · Derin Pekiştirmeli Öğrenme
 
-> 🎥 Video: `<YOUTUBE_LINKI>` · 💻 Kod: bu depo · 🖥️ Arayüz: `python serve.py` → http://localhost:8000
+> 🎥 **Video:** [youtu.be/z4rzt4-W6p0](https://youtu.be/z4rzt4-W6p0) · 💻 Kod: bu depo · 🖥️ Arayüz: `python serve.py` → http://localhost:8000
+
+[![Proje videosu](https://img.youtube.com/vi/z4rzt4-W6p0/maxresdefault.jpg)](https://youtu.be/z4rzt4-W6p0)
 
 ---
 

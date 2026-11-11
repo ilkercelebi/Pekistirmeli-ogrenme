@@ -277,4 +277,4 @@ Metni kelimesi kelimesine okumak zorunda değilsin; kendi cümlelerinle anlatman
 - 3D sahnede sürükleyerek kamerayı çevirebilir, **Hücre / Yakın / Üstten** görünümlerine geçebilirsin.
 - Simülasyonda **4×** hız video için fazla hızlı kalır.
 - Fareyi ekranın en üstüne götürme; Safari'nin araç çubuğu açılır.
-- Yükleme: YouTube'a **“Liste dışı”** yükle, linki README'nin başındaki `<YOUTUBE_LINKI>` yerine yaz.
+- Yükleme: YouTube'a **“Liste dışı”** yükle. Video: https://youtu.be/z4rzt4-W6p0
