@@ -3,7 +3,7 @@
 **Ödev 8 · Pekiştirmeli Öğrenme**
 `<İlker Çelebi · 26472628010 · Derin Pekiştirmeli Öğrenme >`
 
-> 🎥 Video: `<YOUTUBE_LINKI>` · 💻 Kod: bu depo · 🖥️ Arayüz: `python serve.py` → http://localhost:8000
+> 🎥 Video: `<https://youtu.be/z4rzt4-W6p0>` · 💻 Kod: bu depo · 🖥️ Arayüz: `python serve.py` → http://localhost:8000
 
 ---
 
